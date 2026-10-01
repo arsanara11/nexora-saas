@@ -13,7 +13,7 @@ class InventoryController extends Controller
 {
     public function index()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -22,7 +22,16 @@ class InventoryController extends Controller
             'productVariant.product',
         ])
             ->whereHas('warehouse', function ($query) use ($company) {
-                $query->where('company_id', $company->id);
+                $query->where(
+                    'company_id',
+                    $company->id
+                );
+            })
+            ->whereHas('productVariant', function ($query) use ($company) {
+                $query->where(
+                    'company_id',
+                    $company->id
+                );
             })
             ->latest()
             ->get();
@@ -33,7 +42,10 @@ class InventoryController extends Controller
             'user',
             'reference',
         ])
-            ->where('company_id', $company->id)
+            ->where(
+                'company_id',
+                $company->id
+            )
             ->latest()
             ->get();
 
@@ -46,10 +58,9 @@ class InventoryController extends Controller
         );
     }
 
-
     public function create()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -85,10 +96,9 @@ class InventoryController extends Controller
         );
     }
 
-
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -158,7 +168,6 @@ class InventoryController extends Controller
             ->first();
 
         if ($inventory) {
-
             $previousAvailableQuantity =
                 (int) $inventory->quantity
                 - (int) $inventory->reserved_quantity;
@@ -185,44 +194,40 @@ class InventoryController extends Controller
                 - (int) $inventory->reserved_quantity;
 
             $wasLowStock =
-                $previousAvailableQuantity <=
-                $previousReorderLevel;
+                $previousAvailableQuantity
+                <= $previousReorderLevel;
 
             $isLowStock =
-                $currentAvailableQuantity <=
-                (int) $inventory->reorder_level;
+                $currentAvailableQuantity
+                <= (int) $inventory->reorder_level;
 
             $isOutOfStock =
                 $currentAvailableQuantity <= 0;
 
             /*
-            |--------------------------------------------------------------------------
-            | Low Stock Notification
-            |--------------------------------------------------------------------------
-            |
-            | Send an alert whenever an inventory update results in low stock.
-            | This intentionally does not require the inventory to have just
-            | entered the low-stock state, so repeated updates remain visible
-            | in the Notification Center.
-            |
-            */
+             * --------------------------------------------------------------------------
+             * Low Stock Notification
+             * --------------------------------------------------------------------------
+             *
+             * Send an alert whenever an inventory update results in low stock.
+             * This intentionally does not require the inventory to have just
+             * entered the low-stock state, so repeated updates remain visible
+             * in the Notification Center.
+             *
+             */
 
             if ($isLowStock) {
-
                 $productName =
                     $variant->product?->name
                     ?? $variant->name;
 
                 if ($isOutOfStock) {
-
                     $title = 'Inventory Out of Stock';
 
                     $message =
                         "{$productName} is out of stock "
                         . "at {$warehouse->name}.";
-
                 } else {
-
                     $title = 'Low Stock Alert';
 
                     $message =
@@ -239,14 +244,12 @@ class InventoryController extends Controller
                         '▣'
                     )
                 );
-
             } elseif ($wasLowStock && ! $isLowStock) {
-
                 /*
-                |--------------------------------------------------------------------------
-                | Stock Restored Notification
-                |--------------------------------------------------------------------------
-                */
+                 * --------------------------------------------------------------------------
+                 * Stock Restored Notification
+                 * --------------------------------------------------------------------------
+                 */
 
                 $productName =
                     $variant->product?->name
@@ -261,9 +264,7 @@ class InventoryController extends Controller
                     )
                 );
             }
-
         } else {
-
             $inventory = Inventory::create([
                 'warehouse_id' =>
                     $warehouse->id,
@@ -282,10 +283,10 @@ class InventoryController extends Controller
             ]);
 
             /*
-            |--------------------------------------------------------------------------
-            | Initial Inventory Notification
-            |--------------------------------------------------------------------------
-            */
+             * --------------------------------------------------------------------------
+             * Initial Inventory Notification
+             * --------------------------------------------------------------------------
+             */
 
             $availableQuantity =
                 (int) $inventory->quantity
@@ -295,25 +296,21 @@ class InventoryController extends Controller
                 $availableQuantity <= 0;
 
             $isLowStock =
-                $availableQuantity <=
-                (int) $inventory->reorder_level;
+                $availableQuantity
+                <= (int) $inventory->reorder_level;
 
             if ($isLowStock) {
-
                 $productName =
                     $variant->product?->name
                     ?? $variant->name;
 
                 if ($isOutOfStock) {
-
                     $title = 'Inventory Out of Stock';
 
                     $message =
                         "{$productName} is out of stock "
                         . "at {$warehouse->name}.";
-
                 } else {
-
                     $title = 'Low Stock Alert';
 
                     $message =
@@ -341,10 +338,9 @@ class InventoryController extends Controller
             );
     }
 
-
     public function show(Inventory $inventory)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -354,8 +350,14 @@ class InventoryController extends Controller
         ]);
 
         abort_unless(
-            $inventory->warehouse &&
-            $inventory->warehouse->company_id === $company->id,
+            $inventory->warehouse
+            && $inventory->warehouse->company_id === $company->id,
+            404
+        );
+
+        abort_unless(
+            $inventory->productVariant
+            && $inventory->productVariant->company_id === $company->id,
             404
         );
 
@@ -365,10 +367,9 @@ class InventoryController extends Controller
         );
     }
 
-
     public function edit(Inventory $inventory)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -378,8 +379,14 @@ class InventoryController extends Controller
         ]);
 
         abort_unless(
-            $inventory->warehouse &&
-            $inventory->warehouse->company_id === $company->id,
+            $inventory->warehouse
+            && $inventory->warehouse->company_id === $company->id,
+            404
+        );
+
+        abort_unless(
+            $inventory->productVariant
+            && $inventory->productVariant->company_id === $company->id,
             404
         );
 
@@ -389,12 +396,11 @@ class InventoryController extends Controller
         );
     }
 
-
     public function update(
         Request $request,
         Inventory $inventory
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -404,8 +410,14 @@ class InventoryController extends Controller
         ]);
 
         abort_unless(
-            $inventory->warehouse &&
-            $inventory->warehouse->company_id === $company->id,
+            $inventory->warehouse
+            && $inventory->warehouse->company_id === $company->id,
+            404
+        );
+
+        abort_unless(
+            $inventory->productVariant
+            && $inventory->productVariant->company_id === $company->id,
             404
         );
 
@@ -437,8 +449,8 @@ class InventoryController extends Controller
             (int) $inventory->reorder_level;
 
         $wasLowStock =
-            $previousAvailableQuantity <=
-            $previousReorderLevel;
+            $previousAvailableQuantity
+            <= $previousReorderLevel;
 
         $inventory->update([
             'quantity' =>
@@ -458,38 +470,34 @@ class InventoryController extends Controller
             - (int) $inventory->reserved_quantity;
 
         $isLowStock =
-            $currentAvailableQuantity <=
-            (int) $inventory->reorder_level;
+            $currentAvailableQuantity
+            <= (int) $inventory->reorder_level;
 
         $isOutOfStock =
             $currentAvailableQuantity <= 0;
 
         /*
-        |--------------------------------------------------------------------------
-        | Low Stock Notification
-        |--------------------------------------------------------------------------
-        |
-        | Send a notification whenever the updated inventory is currently
-        | at or below the reorder level.
-        |
-        */
+         * --------------------------------------------------------------------------
+         * Low Stock Notification
+         * --------------------------------------------------------------------------
+         *
+         * Send a notification whenever the updated inventory is currently
+         * at or below the reorder level.
+         *
+         */
 
         if ($isLowStock) {
-
             $productName =
                 $inventory->productVariant->product?->name
                 ?? $inventory->productVariant->name;
 
             if ($isOutOfStock) {
-
                 $title = 'Inventory Out of Stock';
 
                 $message =
                     "{$productName} is out of stock "
                     . "at {$inventory->warehouse->name}.";
-
             } else {
-
                 $title = 'Low Stock Alert';
 
                 $message =
@@ -506,14 +514,12 @@ class InventoryController extends Controller
                     '▣'
                 )
             );
-
         } elseif ($wasLowStock && ! $isLowStock) {
-
             /*
-            |--------------------------------------------------------------------------
-            | Stock Restored Notification
-            |--------------------------------------------------------------------------
-            */
+             * --------------------------------------------------------------------------
+             * Stock Restored Notification
+             * --------------------------------------------------------------------------
+             */
 
             $productName =
                 $inventory->productVariant->product?->name

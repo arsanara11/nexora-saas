@@ -17,7 +17,7 @@ class OrderController extends Controller
 {
     public function index()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -26,44 +26,68 @@ class OrderController extends Controller
             'warehouse',
             'items',
         ])
-            ->where('company_id', $company->id)
+            ->where(
+                'company_id',
+                $company->id
+            )
             ->latest()
             ->get();
 
-        return view('orders.index', compact('orders'));
+        return view(
+            'orders.index',
+            compact('orders')
+        );
     }
 
     public function create()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $customers = Customer::where('company_id', $company->id)
+        $customers = Customer::where(
+            'company_id',
+            $company->id
+        )
             ->orderBy('name')
             ->get();
 
-        $warehouses = Warehouse::where('company_id', $company->id)
-            ->where('is_active', true)
+        $warehouses = Warehouse::where(
+            'company_id',
+            $company->id
+        )
+            ->where(
+                'is_active',
+                true
+            )
             ->orderBy('name')
             ->get();
 
         $variants = ProductVariant::with('product')
-            ->where('company_id', $company->id)
-            ->where('is_active', true)
+            ->where(
+                'company_id',
+                $company->id
+            )
+            ->where(
+                'is_active',
+                true
+            )
             ->orderBy('name')
             ->get();
 
-        return view('orders.create', compact(
-            'customers',
-            'warehouses',
-            'variants'
-        ));
+        return view(
+            'orders.create',
+            compact(
+                'customers',
+                'warehouses',
+                'variants'
+            )
+        );
     }
 
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -144,9 +168,13 @@ class OrderController extends Controller
                 'company_id',
                 $company->id
             )
+            ->where(
+                'is_active',
+                true
+            )
             ->firstOrFail();
 
-        if (!empty($validated['customer_id'])) {
+        if (! empty($validated['customer_id'])) {
             Customer::where(
                 'id',
                 $validated['customer_id']
@@ -187,7 +215,8 @@ class OrderController extends Controller
                     ? (float) $itemData['discount']
                     : 0;
 
-                $lineSubtotal = $quantity * $unitPrice;
+                $lineSubtotal =
+                    $quantity * $unitPrice;
 
                 $lineTotal = max(
                     0,
@@ -199,14 +228,27 @@ class OrderController extends Controller
                 $itemDiscountTotal += $itemDiscount;
 
                 $items[] = [
-                    'product_variant_id' => $variant->id,
-                    'product_name' => $variant->product?->name
+                    'product_variant_id' =>
+                        $variant->id,
+
+                    'product_name' =>
+                        $variant->product?->name
                         ?? $variant->name,
-                    'sku' => $variant->sku,
-                    'quantity' => $quantity,
-                    'unit_price' => $unitPrice,
-                    'discount' => $itemDiscount,
-                    'total' => $lineTotal,
+
+                    'sku' =>
+                        $variant->sku,
+
+                    'quantity' =>
+                        $quantity,
+
+                    'unit_price' =>
+                        $unitPrice,
+
+                    'discount' =>
+                        $itemDiscount,
+
+                    'total' =>
+                        $lineTotal,
                 ];
             }
 
@@ -232,19 +274,46 @@ class OrderController extends Controller
             );
 
             $order = Order::create([
-                'company_id' => $company->id,
-                'customer_id' => $validated['customer_id'] ?? null,
-                'warehouse_id' => $warehouse->id,
-                'order_number' => $this->generateOrderNumber(),
-                'status' => 'pending',
-                'payment_status' => 'pending',
-                'subtotal' => $subtotal,
-                'discount' => $itemDiscountTotal + $orderDiscount,
-                'tax' => $tax,
-                'shipping_cost' => $shippingCost,
-                'total' => $total,
-                'notes' => $validated['notes'] ?? null,
-                'ordered_at' => $validated['ordered_at'],
+                'company_id' =>
+                    $company->id,
+
+                'customer_id' =>
+                    $validated['customer_id'] ?? null,
+
+                'warehouse_id' =>
+                    $warehouse->id,
+
+                'order_number' =>
+                    $this->generateOrderNumber(
+                        $company->id
+                    ),
+
+                'status' =>
+                    'pending',
+
+                'payment_status' =>
+                    'pending',
+
+                'subtotal' =>
+                    $subtotal,
+
+                'discount' =>
+                    $itemDiscountTotal + $orderDiscount,
+
+                'tax' =>
+                    $tax,
+
+                'shipping_cost' =>
+                    $shippingCost,
+
+                'total' =>
+                    $total,
+
+                'notes' =>
+                    $validated['notes'] ?? null,
+
+                'ordered_at' =>
+                    $validated['ordered_at'],
             ]);
 
             foreach ($items as $item) {
@@ -253,12 +322,6 @@ class OrderController extends Controller
 
             return $order;
         });
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sales Notification
-        |--------------------------------------------------------------------------
-        */
 
         $request->user()->notify(
             new SystemNotification(
@@ -270,7 +333,10 @@ class OrderController extends Controller
         );
 
         return redirect()
-            ->route('orders.show', $order)
+            ->route(
+                'orders.show',
+                $order
+            )
             ->with(
                 'success',
                 'Sales order created successfully.'
@@ -279,7 +345,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -295,12 +361,29 @@ class OrderController extends Controller
             'invoice',
         ]);
 
-        return view('orders.show', compact('order'));
+        abort_unless(
+            $order->warehouse
+            && $order->warehouse->company_id === $company->id,
+            404
+        );
+
+        foreach ($order->items as $item) {
+            abort_unless(
+                $item->productVariant
+                && $item->productVariant->company_id === $company->id,
+                404
+            );
+        }
+
+        return view(
+            'orders.show',
+            compact('order')
+        );
     }
 
     public function edit(Order $order)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -345,19 +428,22 @@ class OrderController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('orders.edit', compact(
-            'order',
-            'customers',
-            'warehouses',
-            'variants'
-        ));
+        return view(
+            'orders.edit',
+            compact(
+                'order',
+                'customers',
+                'warehouses',
+                'variants'
+            )
+        );
     }
 
     public function update(
         Request $request,
         Order $order
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -449,9 +535,13 @@ class OrderController extends Controller
                 'company_id',
                 $company->id
             )
+            ->where(
+                'is_active',
+                true
+            )
             ->firstOrFail();
 
-        if (!empty($validated['customer_id'])) {
+        if (! empty($validated['customer_id'])) {
             Customer::where(
                 'id',
                 $validated['customer_id']
@@ -485,15 +575,20 @@ class OrderController extends Controller
                     )
                     ->firstOrFail();
 
-                $quantity = (int) $itemData['quantity'];
+                $quantity =
+                    (int) $itemData['quantity'];
 
-                $unitPrice = (float) $itemData['unit_price'];
+                $unitPrice =
+                    (float) $itemData['unit_price'];
 
-                $itemDiscount = isset($itemData['discount'])
+                $itemDiscount = isset(
+                    $itemData['discount']
+                )
                     ? (float) $itemData['discount']
                     : 0;
 
-                $lineSubtotal = $quantity * $unitPrice;
+                $lineSubtotal =
+                    $quantity * $unitPrice;
 
                 $lineTotal = max(
                     0,
@@ -505,14 +600,27 @@ class OrderController extends Controller
                 $itemDiscountTotal += $itemDiscount;
 
                 $items[] = [
-                    'product_variant_id' => $variant->id,
-                    'product_name' => $variant->product?->name
+                    'product_variant_id' =>
+                        $variant->id,
+
+                    'product_name' =>
+                        $variant->product?->name
                         ?? $variant->name,
-                    'sku' => $variant->sku,
-                    'quantity' => $quantity,
-                    'unit_price' => $unitPrice,
-                    'discount' => $itemDiscount,
-                    'total' => $lineTotal,
+
+                    'sku' =>
+                        $variant->sku,
+
+                    'quantity' =>
+                        $quantity,
+
+                    'unit_price' =>
+                        $unitPrice,
+
+                    'discount' =>
+                        $itemDiscount,
+
+                    'total' =>
+                        $lineTotal,
                 ];
             }
 
@@ -538,15 +646,32 @@ class OrderController extends Controller
             );
 
             $order->update([
-                'customer_id' => $validated['customer_id'] ?? null,
-                'warehouse_id' => $warehouse->id,
-                'subtotal' => $subtotal,
-                'discount' => $itemDiscountTotal + $orderDiscount,
-                'tax' => $tax,
-                'shipping_cost' => $shippingCost,
-                'total' => $total,
-                'notes' => $validated['notes'] ?? null,
-                'ordered_at' => $validated['ordered_at'],
+                'customer_id' =>
+                    $validated['customer_id'] ?? null,
+
+                'warehouse_id' =>
+                    $warehouse->id,
+
+                'subtotal' =>
+                    $subtotal,
+
+                'discount' =>
+                    $itemDiscountTotal + $orderDiscount,
+
+                'tax' =>
+                    $tax,
+
+                'shipping_cost' =>
+                    $shippingCost,
+
+                'total' =>
+                    $total,
+
+                'notes' =>
+                    $validated['notes'] ?? null,
+
+                'ordered_at' =>
+                    $validated['ordered_at'],
             ]);
 
             $order->items()->delete();
@@ -566,7 +691,10 @@ class OrderController extends Controller
         );
 
         return redirect()
-            ->route('orders.show', $order)
+            ->route(
+                'orders.show',
+                $order
+            )
             ->with(
                 'success',
                 'Sales order updated successfully.'
@@ -577,7 +705,7 @@ class OrderController extends Controller
         Request $request,
         Order $order
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -599,9 +727,12 @@ class OrderController extends Controller
 
         DB::transaction(function () use (
             $order,
-            $newStatus
+            $newStatus,
+            $company
         ) {
-            $order->load('items');
+            $order->load([
+                'items',
+            ]);
 
             $currentStatus = $order->status;
 
@@ -644,17 +775,59 @@ class OrderController extends Controller
             );
 
             /*
-            |--------------------------------------------------------------------------
-            | PENDING -> CONFIRMED
-            |--------------------------------------------------------------------------
-            | Reserve stock.
-            | Physical quantity does not change.
-            |--------------------------------------------------------------------------
-            */
+             * --------------------------------------------------------------------------
+             * Validate order warehouse
+             * --------------------------------------------------------------------------
+             */
+
+            $warehouse = Warehouse::query()
+                ->whereKey($order->warehouse_id)
+                ->where(
+                    'company_id',
+                    $company->id
+                )
+                ->first();
+
+            abort_unless(
+                $warehouse,
+                422,
+                'Order warehouse does not belong to the current company.'
+            );
+
+            /*
+             * --------------------------------------------------------------------------
+             * Validate order items
+             * --------------------------------------------------------------------------
+             */
+
+            foreach ($order->items as $item) {
+                $variant = ProductVariant::query()
+                    ->whereKey($item->product_variant_id)
+                    ->where(
+                        'company_id',
+                        $company->id
+                    )
+                    ->exists();
+
+                abort_unless(
+                    $variant,
+                    422,
+                    'Order item does not belong to the current company.'
+                );
+            }
+
+            /*
+             * --------------------------------------------------------------------------
+             * PENDING -> CONFIRMED
+             *
+             * Reserve stock.
+             * Physical quantity does not change.
+             * --------------------------------------------------------------------------
+             */
 
             if (
-                $currentStatus === 'pending' &&
-                $newStatus === 'confirmed'
+                $currentStatus === 'pending'
+                && $newStatus === 'confirmed'
             ) {
                 foreach ($order->items as $item) {
                     $inventory = Inventory::where(
@@ -669,7 +842,7 @@ class OrderController extends Controller
                         ->first();
 
                     abort_if(
-                        !$inventory,
+                        ! $inventory,
                         422,
                         'Inventory not found for '
                         . $item->sku
@@ -680,7 +853,8 @@ class OrderController extends Controller
                         - (int) $inventory->reserved_quantity;
 
                     abort_if(
-                        $availableQuantity < (int) $item->quantity,
+                        $availableQuantity
+                        < (int) $item->quantity,
                         422,
                         'Insufficient available stock for '
                         . $item->sku
@@ -695,17 +869,17 @@ class OrderController extends Controller
             }
 
             /*
-            |--------------------------------------------------------------------------
-            | CONFIRMED -> CANCELLED
-            |--------------------------------------------------------------------------
-            | Release reserved stock.
-            | Physical quantity does not change.
-            |--------------------------------------------------------------------------
-            */
+             * --------------------------------------------------------------------------
+             * CONFIRMED -> CANCELLED
+             *
+             * Release reserved stock.
+             * Physical quantity does not change.
+             * --------------------------------------------------------------------------
+             */
 
             if (
-                $currentStatus === 'confirmed' &&
-                $newStatus === 'cancelled'
+                $currentStatus === 'confirmed'
+                && $newStatus === 'cancelled'
             ) {
                 foreach ($order->items as $item) {
                     $inventory = Inventory::where(
@@ -719,7 +893,7 @@ class OrderController extends Controller
                         ->lockForUpdate()
                         ->first();
 
-                    if (!$inventory) {
+                    if (! $inventory) {
                         continue;
                     }
 
@@ -734,18 +908,18 @@ class OrderController extends Controller
             }
 
             /*
-            |--------------------------------------------------------------------------
-            | PROCESSING -> COMPLETED
-            |--------------------------------------------------------------------------
-            | Deduct physical stock.
-            | Release reservation.
-            | Create stock movement.
-            |--------------------------------------------------------------------------
-            */
+             * --------------------------------------------------------------------------
+             * PROCESSING -> COMPLETED
+             *
+             * Deduct physical stock.
+             * Release reservation.
+             * Create stock movement.
+             * --------------------------------------------------------------------------
+             */
 
             if (
-                $currentStatus === 'processing' &&
-                $newStatus === 'completed'
+                $currentStatus === 'processing'
+                && $newStatus === 'completed'
             ) {
                 foreach ($order->items as $item) {
                     $inventory = Inventory::where(
@@ -760,14 +934,15 @@ class OrderController extends Controller
                         ->first();
 
                     abort_if(
-                        !$inventory,
+                        ! $inventory,
                         422,
                         'Inventory not found for '
                         . $item->sku
                     );
 
                     abort_if(
-                        (int) $inventory->quantity < (int) $item->quantity,
+                        (int) $inventory->quantity
+                        < (int) $item->quantity,
                         422,
                         'Insufficient physical stock for '
                         . $item->sku
@@ -786,14 +961,30 @@ class OrderController extends Controller
                     $inventory->save();
 
                     StockMovement::create([
-                        'company_id' => $order->company_id,
-                        'warehouse_id' => $order->warehouse_id,
-                        'product_variant_id' => $item->product_variant_id,
-                        'user_id' => auth()->id(),
-                        'type' => 'sale',
-                        'quantity' => $item->quantity,
-                        'reference_type' => Order::class,
-                        'reference_id' => $order->id,
+                        'company_id' =>
+                            $order->company_id,
+
+                        'warehouse_id' =>
+                            $order->warehouse_id,
+
+                        'product_variant_id' =>
+                            $item->product_variant_id,
+
+                        'user_id' =>
+                            auth()->id(),
+
+                        'type' =>
+                            'sale',
+
+                        'quantity' =>
+                            $item->quantity,
+
+                        'reference_type' =>
+                            Order::class,
+
+                        'reference_id' =>
+                            $order->id,
+
                         'notes' =>
                             'Stock deducted from sales order '
                             . $order->order_number,
@@ -802,17 +993,17 @@ class OrderController extends Controller
             }
 
             /*
-            |--------------------------------------------------------------------------
-            | PROCESSING -> CANCELLED
-            |--------------------------------------------------------------------------
-            | Release reserved stock.
-            | Physical quantity does not change.
-            |--------------------------------------------------------------------------
-            */
+             * --------------------------------------------------------------------------
+             * PROCESSING -> CANCELLED
+             *
+             * Release reserved stock.
+             * Physical quantity does not change.
+             * --------------------------------------------------------------------------
+             */
 
             if (
-                $currentStatus === 'processing' &&
-                $newStatus === 'cancelled'
+                $currentStatus === 'processing'
+                && $newStatus === 'cancelled'
             ) {
                 foreach ($order->items as $item) {
                     $inventory = Inventory::where(
@@ -826,7 +1017,7 @@ class OrderController extends Controller
                         ->lockForUpdate()
                         ->first();
 
-                    if (!$inventory) {
+                    if (! $inventory) {
                         continue;
                     }
 
@@ -845,15 +1036,12 @@ class OrderController extends Controller
             ]);
         });
 
-        /*
-        |--------------------------------------------------------------------------
-        | Status Notification
-        |--------------------------------------------------------------------------
-        */
-
         if ($currentStatus !== $newStatus) {
-            $oldStatusLabel = Str::headline($currentStatus);
-            $newStatusLabel = Str::headline($newStatus);
+            $oldStatusLabel =
+                Str::headline($currentStatus);
+
+            $newStatusLabel =
+                Str::headline($newStatus);
 
             $request->user()->notify(
                 new SystemNotification(
@@ -866,7 +1054,10 @@ class OrderController extends Controller
         }
 
         return redirect()
-            ->route('orders.show', $order)
+            ->route(
+                'orders.show',
+                $order
+            )
             ->with(
                 'success',
                 'Order status updated successfully.'
@@ -877,7 +1068,7 @@ class OrderController extends Controller
         Request $request,
         Order $order
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -893,9 +1084,11 @@ class OrderController extends Controller
             ],
         ]);
 
-        $newStatus = $validated['payment_status'];
+        $newStatus =
+            $validated['payment_status'];
 
-        $currentStatus = $order->payment_status;
+        $currentStatus =
+            $order->payment_status;
 
         $allowedTransitions = [
             'pending' => [
@@ -934,15 +1127,12 @@ class OrderController extends Controller
             'payment_status' => $newStatus,
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Payment Notification
-        |--------------------------------------------------------------------------
-        */
-
         if ($currentStatus !== $newStatus) {
-            $oldStatusLabel = Str::headline($currentStatus);
-            $newStatusLabel = Str::headline($newStatus);
+            $oldStatusLabel =
+                Str::headline($currentStatus);
+
+            $newStatusLabel =
+                Str::headline($newStatus);
 
             $request->user()->notify(
                 new SystemNotification(
@@ -955,7 +1145,10 @@ class OrderController extends Controller
         }
 
         return redirect()
-            ->route('orders.show', $order)
+            ->route(
+                'orders.show',
+                $order
+            )
             ->with(
                 'success',
                 'Payment status updated successfully.'
@@ -964,7 +1157,7 @@ class OrderController extends Controller
 
     public function destroy(Order $order)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -1004,8 +1197,9 @@ class OrderController extends Controller
             );
     }
 
-    private function generateOrderNumber(): string
-    {
+    private function generateOrderNumber(
+        int $companyId
+    ): string {
         do {
             $number =
                 'SO-'
@@ -1016,9 +1210,14 @@ class OrderController extends Controller
                 );
         } while (
             Order::where(
-                'order_number',
-                $number
-            )->exists()
+                'company_id',
+                $companyId
+            )
+                ->where(
+                    'order_number',
+                    $number
+                )
+                ->exists()
         );
 
         return $number;

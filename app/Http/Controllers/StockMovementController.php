@@ -11,18 +11,18 @@ class StockMovementController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
+        /*
+         * --------------------------------------------------------------------------
+         * Summary
+         * --------------------------------------------------------------------------
+         */
+
         $baseQuery = StockMovement::query()
             ->where('company_id', $company->id);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Summary
-        |--------------------------------------------------------------------------
-        */
 
         $summary = [
             'total' => (clone $baseQuery)->count(),
@@ -41,10 +41,10 @@ class StockMovementController extends Controller
         ];
 
         /*
-        |--------------------------------------------------------------------------
-        | Filters
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Main Query
+         * --------------------------------------------------------------------------
+         */
 
         $query = StockMovement::query()
             ->where('company_id', $company->id)
@@ -57,10 +57,10 @@ class StockMovementController extends Controller
             ->latest();
 
         /*
-        |--------------------------------------------------------------------------
-        | Search
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Search
+         * --------------------------------------------------------------------------
+         */
 
         if ($request->filled('search')) {
             $search = trim(
@@ -68,46 +68,82 @@ class StockMovementController extends Controller
             );
 
             $query->where(function ($q) use ($search) {
-
-                $q->where('type', 'like', "%{$search}%")
-                    ->orWhere('notes', 'like', "%{$search}%")
-                    ->orWhere('reference_type', 'like', "%{$search}%")
-                    ->orWhere('reference_id', 'like', "%{$search}%")
-
-                    ->orWhereHas('warehouse', function ($warehouseQuery) use ($search) {
-                        $warehouseQuery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('code', 'like', "%{$search}%");
-                    })
-
-                    ->orWhereHas('productVariant', function ($variantQuery) use ($search) {
-
-                        $variantQuery
-                            ->where('sku', 'like', "%{$search}%")
-                            ->orWhere('name', 'like', "%{$search}%")
-
-                            ->orWhereHas('product', function ($productQuery) use ($search) {
-                                $productQuery
-                                    ->where('name', 'like', "%{$search}%")
-                                    ->orWhere('brand', 'like', "%{$search}%");
-                            });
-
-                    })
-
-                    ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-
+                $q->where(
+                    'type',
+                    'like',
+                    "%{$search}%"
+                )
+                    ->orWhere(
+                        'notes',
+                        'like',
+                        "%{$search}%"
+                    )
+                    ->orWhere(
+                        'reference_type',
+                        'like',
+                        "%{$search}%"
+                    )
+                    ->orWhere(
+                        'reference_id',
+                        'like',
+                        "%{$search}%"
+                    )
+                    ->orWhereHas(
+                        'warehouse',
+                        function ($warehouseQuery) use ($search) {
+                            $warehouseQuery
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%");
+                        }
+                    )
+                    ->orWhereHas(
+                        'productVariant',
+                        function ($variantQuery) use ($search) {
+                            $variantQuery
+                                ->where('sku', 'like', "%{$search}%")
+                                ->orWhere('name', 'like', "%{$search}%")
+                                ->orWhereHas(
+                                    'product',
+                                    function ($productQuery) use ($search) {
+                                        $productQuery
+                                            ->where(
+                                                'name',
+                                                'like',
+                                                "%{$search}%"
+                                            )
+                                            ->orWhere(
+                                                'brand',
+                                                'like',
+                                                "%{$search}%"
+                                            );
+                                    }
+                                );
+                        }
+                    )
+                    ->orWhereHas(
+                        'user',
+                        function ($userQuery) use ($search) {
+                            $userQuery
+                                ->where(
+                                    'name',
+                                    'like',
+                                    "%{$search}%"
+                                )
+                                ->orWhere(
+                                    'email',
+                                    'like',
+                                    "%{$search}%"
+                                );
+                        }
+                    );
             });
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | Type Filter
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Type Filter
+         * --------------------------------------------------------------------------
+         */
 
         if ($request->filled('type')) {
             $query->where(
@@ -117,23 +153,40 @@ class StockMovementController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | Warehouse Filter
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Warehouse Filter
+         * --------------------------------------------------------------------------
+         */
 
         if ($request->filled('warehouse_id')) {
+            $warehouseId = $request->integer(
+                'warehouse_id'
+            );
+
+            $warehouseBelongsToCompany = Warehouse::query()
+                ->whereKey($warehouseId)
+                ->where(
+                    'company_id',
+                    $company->id
+                )
+                ->exists();
+
+            abort_unless(
+                $warehouseBelongsToCompany,
+                404
+            );
+
             $query->where(
                 'warehouse_id',
-                $request->integer('warehouse_id')
+                $warehouseId
             );
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | Date Filter
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Date Filter
+         * --------------------------------------------------------------------------
+         */
 
         if ($request->filled('date_from')) {
             $query->whereDate(
@@ -152,23 +205,26 @@ class StockMovementController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | Result
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Result
+         * --------------------------------------------------------------------------
+         */
 
         $movements = $query
             ->paginate(20)
             ->withQueryString();
 
         /*
-        |--------------------------------------------------------------------------
-        | Warehouses
-        |--------------------------------------------------------------------------
-        */
+         * --------------------------------------------------------------------------
+         * Warehouses
+         * --------------------------------------------------------------------------
+         */
 
         $warehouses = Warehouse::query()
-            ->where('company_id', $company->id)
+            ->where(
+                'company_id',
+                $company->id
+            )
             ->orderBy('name')
             ->get();
 
@@ -182,12 +238,11 @@ class StockMovementController extends Controller
         );
     }
 
-
     public function show(
         Request $request,
         StockMovement $stockMovement
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -202,6 +257,18 @@ class StockMovementController extends Controller
             'user',
             'reference',
         ]);
+
+        abort_unless(
+            $stockMovement->warehouse
+            && $stockMovement->warehouse->company_id === $company->id,
+            404
+        );
+
+        abort_unless(
+            $stockMovement->productVariant
+            && $stockMovement->productVariant->company_id === $company->id,
+            404
+        );
 
         return view(
             'stock-movements.show',

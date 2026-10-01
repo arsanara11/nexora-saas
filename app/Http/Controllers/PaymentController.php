@@ -17,7 +17,7 @@ class PaymentController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -35,8 +35,11 @@ class PaymentController extends Controller
                 $q->where('method', 'like', "%{$search}%")
                     ->orWhere('status', 'like', "%{$search}%")
                     ->orWhereHas('invoice', function ($invoiceQuery) use ($search) {
-                        $invoiceQuery
-                            ->where('invoice_number', 'like', "%{$search}%");
+                        $invoiceQuery->where(
+                            'invoice_number',
+                            'like',
+                            "%{$search}%"
+                        );
                     });
             });
         }
@@ -61,7 +64,10 @@ class PaymentController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $methods = Payment::where('company_id', $company->id)
+        $methods = Payment::where(
+            'company_id',
+            $company->id
+        )
             ->whereNotNull('method')
             ->where('method', '!=', '')
             ->distinct()
@@ -75,37 +81,37 @@ class PaymentController extends Controller
             )->count(),
 
             'paid' => Payment::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'paid')
                 ->count(),
 
             'pending' => Payment::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'pending')
                 ->count(),
 
             'failed' => Payment::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'failed')
                 ->count(),
 
             'refunded' => Payment::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'refunded')
                 ->count(),
 
             'paid_amount' => Payment::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'paid')
                 ->sum('amount'),
 
@@ -130,7 +136,7 @@ class PaymentController extends Controller
      */
     public function create(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -152,7 +158,8 @@ class PaymentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $company = $user->companies()->first();
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -185,6 +192,10 @@ class PaymentController extends Controller
             $validated,
             $company
         ) {
+            /*
+             * The invoice is explicitly scoped to the
+             * current company before the payment is created.
+             */
             $invoice = Invoice::where(
                 'company_id',
                 $company->id
@@ -203,13 +214,15 @@ class PaymentController extends Controller
                     : null,
             ]);
 
-            // Automatically mark invoice as paid
-            // when a successful payment covers the remaining balance.
+            /*
+             * Automatically mark invoice as paid
+             * when successful payments cover the total.
+             */
             if ($payment->status === 'paid') {
                 $paidAmount = Payment::where(
-                        'invoice_id',
-                        $invoice->id
-                    )
+                    'invoice_id',
+                    $invoice->id
+                )
                     ->where('status', 'paid')
                     ->sum('amount');
 
@@ -260,7 +273,7 @@ class PaymentController extends Controller
         Request $request,
         Payment $payment
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -286,7 +299,7 @@ class PaymentController extends Controller
         Request $request,
         Payment $payment
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -313,7 +326,8 @@ class PaymentController extends Controller
         Payment $payment
     ): RedirectResponse {
         $user = $request->user();
-        $company = $user->companies()->first();
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -346,7 +360,8 @@ class PaymentController extends Controller
 
         DB::transaction(function () use (
             $payment,
-            $validated
+            $validated,
+            $company
         ) {
             $payment->update([
                 'amount' => $validated['amount'],
@@ -357,9 +372,13 @@ class PaymentController extends Controller
                     : null,
             ]);
 
+            /*
+             * Explicitly scope the invoice to the
+             * current company.
+             */
             $invoice = Invoice::where(
                 'company_id',
-                $payment->company_id
+                $company->id
             )
                 ->lockForUpdate()
                 ->find($payment->invoice_id);
@@ -369,9 +388,9 @@ class PaymentController extends Controller
             }
 
             $paidAmount = Payment::where(
-                    'invoice_id',
-                    $invoice->id
-                )
+                'invoice_id',
+                $invoice->id
+            )
                 ->where('status', 'paid')
                 ->sum('amount');
 
@@ -463,7 +482,8 @@ class PaymentController extends Controller
         Payment $payment
     ): RedirectResponse {
         $user = $request->user();
-        $company = $user->companies()->first();
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -482,6 +502,10 @@ class PaymentController extends Controller
         ) {
             $payment->delete();
 
+            /*
+             * Recalculate the related invoice only
+             * inside the current company.
+             */
             $invoice = Invoice::where(
                 'company_id',
                 $company->id
@@ -492,9 +516,9 @@ class PaymentController extends Controller
             }
 
             $paidAmount = Payment::where(
-                    'invoice_id',
-                    $invoice->id
-                )
+                'invoice_id',
+                $invoice->id
+            )
                 ->where('status', 'paid')
                 ->sum('amount');
 
