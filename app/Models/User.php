@@ -54,11 +54,45 @@ class User extends Authenticatable
 
     public function hasPermission(string $permission): bool
     {
-        $company = $this->companies()->first();
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve Current Company
+        |--------------------------------------------------------------------------
+        |
+        | Gunakan company yang sedang aktif di session.
+        | Jangan lagi menggunakan companies()->first().
+        |
+        */
+
+        $companyId = session('current_company_id');
+
+        if (! $companyId) {
+            return false;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Verify User Membership
+        |--------------------------------------------------------------------------
+        |
+        | Pastikan user benar-benar merupakan member dari
+        | company yang sedang aktif.
+        |
+        */
+
+        $company = $this->companies()
+            ->where('companies.id', $companyId)
+            ->first();
 
         if (! $company) {
             return false;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve Role For Current Company
+        |--------------------------------------------------------------------------
+        */
 
         $role = $this->roles()
             ->where('roles.company_id', $company->id)
@@ -68,6 +102,12 @@ class User extends Authenticatable
         if (! $role) {
             return false;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check Permission
+        |--------------------------------------------------------------------------
+        */
 
         return $role->permissions
             ->contains('name', $permission);

@@ -24,7 +24,6 @@ trait Auditable
             );
         });
 
-
         /*
         |--------------------------------------------------------------------------
         | Updated
@@ -32,7 +31,6 @@ trait Auditable
         */
 
         static::updated(function ($model) {
-
             $changes = $model->getChanges();
 
             unset($changes['updated_at']);
@@ -55,7 +53,6 @@ trait Auditable
             );
         });
 
-
         /*
         |--------------------------------------------------------------------------
         | Deleted
@@ -72,7 +69,6 @@ trait Auditable
         });
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | Write Audit Log
@@ -87,12 +83,55 @@ trait Auditable
     ): void {
         $user = Auth::user();
 
-        $companyId = $model->company_id
-            ?? $user?->companies()->first()?->id;
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve Company
+        |--------------------------------------------------------------------------
+        |
+        | Prioritaskan company_id yang memang dimiliki oleh model.
+        |
+        | Jika model tidak memiliki company_id, gunakan current company
+        | yang disimpan oleh SetCurrentCompany di session.
+        |
+        */
+
+        $companyId = $model->company_id ?? null;
 
         if (! $companyId) {
-            return;
+            $currentCompanyId = session('current_company_id');
+
+            if (! $currentCompanyId) {
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Verify User Membership
+            |--------------------------------------------------------------------------
+            |
+            | Pastikan user yang sedang login memang merupakan member
+            | dari current company tersebut.
+            |
+            */
+
+            if ($user) {
+                $isMember = $user->companies()
+                    ->where('companies.id', $currentCompanyId)
+                    ->exists();
+
+                if (! $isMember) {
+                    return;
+                }
+            }
+
+            $companyId = $currentCompanyId;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Audit Log
+        |--------------------------------------------------------------------------
+        */
 
         AuditLog::create([
             'company_id' => $companyId,

@@ -24,7 +24,6 @@ use App\Http\Controllers\TeamController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
-
 /*
 |--------------------------------------------------------------------------
 | Product Routes
@@ -35,7 +34,6 @@ Route::middleware([
     'auth',
     'permission:Manage Products',
 ])->group(function () {
-
     Route::get('/products', [ProductController::class, 'index'])
         ->name('products.index');
 
@@ -58,7 +56,6 @@ Route::middleware([
         ->name('products.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Category Routes
@@ -69,7 +66,6 @@ Route::middleware([
     'auth',
     'permission:Manage Products',
 ])->group(function () {
-
     Route::get('/categories', [CategoryController::class, 'index'])
         ->name('categories.index');
 
@@ -95,7 +91,6 @@ Route::middleware([
         ->name('categories.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Customer Routes
@@ -106,7 +101,6 @@ Route::middleware([
     'auth',
     'permission:Manage Customers',
 ])->group(function () {
-
     Route::get('/customers', [CustomerController::class, 'index'])
         ->name('customers.index');
 
@@ -129,7 +123,6 @@ Route::middleware([
         ->name('customers.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Inventory Routes
@@ -140,7 +133,6 @@ Route::middleware([
     'auth',
     'permission:Manage Inventory',
 ])->group(function () {
-
     Route::get('/inventory', [InventoryController::class, 'index'])
         ->name('inventory.index');
 
@@ -149,7 +141,6 @@ Route::middleware([
 
     Route::post('/inventory', [InventoryController::class, 'store'])
         ->name('inventory.store');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -162,7 +153,6 @@ Route::middleware([
 
     Route::get('/inventory/stock-movements/{stockMovement}', [StockMovementController::class, 'show'])
         ->name('stock-movements.show');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -178,7 +168,6 @@ Route::middleware([
 
     Route::get('/inventory/{inventory}', [InventoryController::class, 'show'])
         ->name('inventory.show');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -211,7 +200,6 @@ Route::middleware([
         ->name('warehouses.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Purchasing Routes
@@ -222,7 +210,6 @@ Route::middleware([
     'auth',
     'permission:Manage Purchasing',
 ])->group(function () {
-
     Route::get('/purchasing', [PurchaseOrderController::class, 'index'])
         ->name('purchasing.index');
 
@@ -246,7 +233,6 @@ Route::middleware([
 
     Route::delete('/purchasing/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])
         ->name('purchasing.destroy');
-
 
     /*
     |--------------------------------------------------------------------------
@@ -279,7 +265,6 @@ Route::middleware([
         ->name('suppliers.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Sales / Orders Routes
@@ -290,7 +275,6 @@ Route::middleware([
     'auth',
     'permission:Manage Sales',
 ])->group(function () {
-
     Route::get('/orders', [OrderController::class, 'index'])
         ->name('orders.index');
 
@@ -319,7 +303,6 @@ Route::middleware([
         ->name('orders.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Finance Dashboard
@@ -333,7 +316,6 @@ Route::get('/finance', [FinanceController::class, 'index'])
     ])
     ->name('finance.index');
 
-
 /*
 |--------------------------------------------------------------------------
 | Finance / Invoice Routes
@@ -344,7 +326,6 @@ Route::middleware([
     'auth',
     'permission:Manage Finance',
 ])->group(function () {
-
     Route::get('/finance/invoices', [InvoiceController::class, 'index'])
         ->name('finance.invoices.index');
 
@@ -370,7 +351,6 @@ Route::middleware([
         ->name('finance.invoices.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Finance / Expense Routes
@@ -381,7 +361,6 @@ Route::middleware([
     'auth',
     'permission:Manage Finance',
 ])->group(function () {
-
     Route::get('/finance/expenses', [ExpenseController::class, 'index'])
         ->name('finance.expenses.index');
 
@@ -404,7 +383,6 @@ Route::middleware([
         ->name('finance.expenses.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Finance / Payment Routes
@@ -415,7 +393,6 @@ Route::middleware([
     'auth',
     'permission:Manage Finance',
 ])->group(function () {
-
     Route::get('/finance/payments', [PaymentController::class, 'index'])
         ->name('finance.payments.index');
 
@@ -438,7 +415,6 @@ Route::middleware([
         ->name('finance.payments.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Analytics Routes
@@ -452,7 +428,6 @@ Route::get('/analytics', [AnalyticsController::class, 'index'])
     ])
     ->name('analytics.index');
 
-
 /*
 |--------------------------------------------------------------------------
 | Team Routes
@@ -463,7 +438,6 @@ Route::middleware([
     'auth',
     'permission:Manage Team',
 ])->group(function () {
-
     Route::get('/team', [TeamController::class, 'index'])
         ->name('team.index');
 
@@ -483,7 +457,6 @@ Route::middleware([
         ->name('team.toggle-status');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Role & Permission Routes
@@ -494,7 +467,6 @@ Route::middleware([
     'auth',
     'permission:Manage Team',
 ])->group(function () {
-
     Route::get('/roles', [RoleController::class, 'index'])
         ->name('roles.index');
 
@@ -514,7 +486,6 @@ Route::middleware([
         ->name('roles.destroy');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Settings Routes
@@ -525,14 +496,12 @@ Route::middleware([
     'auth',
     'permission:Manage Settings',
 ])->group(function () {
-
     Route::get('/settings', [SettingsController::class, 'index'])
         ->name('settings.index');
 
     Route::put('/settings', [SettingsController::class, 'update'])
         ->name('settings.update');
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -544,14 +513,12 @@ Route::middleware([
     'auth',
     'permission:Manage Settings',
 ])->group(function () {
-
     Route::get('/audit-logs/export', [AuditLogController::class, 'export'])
         ->name('audit-logs.export');
 
     Route::get('/audit-logs', [AuditLogController::class, 'index'])
         ->name('audit-logs.index');
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -560,7 +527,6 @@ Route::middleware([
 */
 
 Route::middleware('auth')->group(function () {
-
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
 
@@ -571,7 +537,6 @@ Route::middleware('auth')->group(function () {
         ->name('notifications.read-all');
 });
 
-
 /*
 |--------------------------------------------------------------------------
 | Global Search
@@ -579,11 +544,9 @@ Route::middleware('auth')->group(function () {
 */
 
 Route::middleware('auth')->group(function () {
-
     Route::get('/global-search', GlobalSearchController::class)
         ->name('global.search');
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -594,7 +557,6 @@ Route::middleware('auth')->group(function () {
 Route::get('/', function () {
     return view('welcome');
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -610,6 +572,26 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ])
     ->name('dashboard');
 
+/*
+|--------------------------------------------------------------------------
+| Debug - Current Company
+|--------------------------------------------------------------------------
+|
+| Temporary route untuk memastikan SetCurrentCompany bekerja.
+| Akan dihapus setelah proses audit tenant selesai.
+|
+*/
+
+Route::get('/debug/current-company', function (\Illuminate\Http\Request $request) {
+    $company = $request->attributes->get('currentCompany');
+
+    return response()->json([
+        'user_id' => $request->user()?->id,
+        'current_company_id' => $request->session()->get('current_company_id'),
+        'current_company_name' => $company?->name,
+        'current_company_exists' => (bool) $company,
+    ]);
+})->middleware('auth');
 
 /*
 |--------------------------------------------------------------------------
@@ -618,7 +600,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 */
 
 Route::middleware('auth')->group(function () {
-
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
 
@@ -631,7 +612,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile/avatar', [ProfileController::class, 'removeAvatar'])
         ->name('profile.avatar.remove');
 });
-
 
 /*
 |--------------------------------------------------------------------------

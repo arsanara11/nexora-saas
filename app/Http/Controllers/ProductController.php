@@ -10,20 +10,55 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Index
+    |--------------------------------------------------------------------------
+    */
+
     public function index()
     {
+        $company = request()->attributes->get('currentCompany');
+
+        abort_unless($company, 403);
+
         $products = Product::with([
             'category',
             'variants.inventories',
         ])
+            ->where('company_id', $company->id)
             ->latest()
             ->get();
 
         return view('products.index', compact('products'));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Show
+    |--------------------------------------------------------------------------
+    */
+
     public function show(Product $product)
     {
+        $company = request()->attributes->get('currentCompany');
+
+        abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        |
+        | Product harus berasal dari company yang sedang aktif.
+        |
+        */
+
+        abort_unless(
+            $product->company_id === $company->id,
+            404
+        );
+
         $product->load([
             'category',
             'variants.inventories',
@@ -32,18 +67,38 @@ class ProductController extends Controller
         return view('products.show', compact('product'));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Edit
+    |--------------------------------------------------------------------------
+    */
+
     public function edit(Product $product)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
+
+        abort_unless(
+            $product->company_id === $company->id,
+            404
+        );
 
         $product->load([
             'category',
             'variants',
         ]);
 
-        $categories = Category::where('company_id', $company->id)
+        $categories = Category::where(
+            'company_id',
+            $company->id
+        )
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
@@ -57,13 +112,22 @@ class ProductController extends Controller
         ));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Create
+    |--------------------------------------------------------------------------
+    */
+
     public function create()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $categories = Category::where('company_id', $company->id)
+        $categories = Category::where(
+            'company_id',
+            $company->id
+        )
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
@@ -71,33 +135,108 @@ class ProductController extends Controller
         return view('products.create', compact('categories'));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Store
+    |--------------------------------------------------------------------------
+    */
+
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category_id' => ['nullable', 'exists:categories,id'],
-            'brand' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
 
-            'sku' => ['required', 'string', 'max:100'],
-            'variant_name' => ['required', 'string', 'max:255'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'cost_price' => ['nullable', 'numeric', 'min:0'],
+            'category_id' => [
+                'nullable',
+                'exists:categories,id',
+            ],
+
+            'brand' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'description' => [
+                'nullable',
+                'string',
+            ],
+
+            'sku' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'variant_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'price' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
+            'cost_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
         ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Category Ownership
+        |--------------------------------------------------------------------------
+        */
+
+        $categoryId = $validated['category_id'] ?? null;
+
+        if ($categoryId) {
+            $categoryExists = Category::where(
+                'company_id',
+                $company->id
+            )
+                ->whereKey($categoryId)
+                ->exists();
+
+            abort_unless($categoryExists, 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Product
+        |--------------------------------------------------------------------------
+        */
 
         $product = Product::create([
             'company_id' => $company->id,
-            'category_id' => $validated['category_id'] ?? null,
+            'category_id' => $categoryId,
             'name' => $validated['name'],
             'slug' => Str::slug($validated['name']),
             'description' => $validated['description'] ?? null,
             'brand' => $validated['brand'] ?? null,
-            'status' => $request->has('is_active') ? 'active' : 'inactive',
+            'status' => $request->has('is_active')
+                ? 'active'
+                : 'inactive',
         ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Initial Variant
+        |--------------------------------------------------------------------------
+        */
 
         ProductVariant::create([
             'company_id' => $company->id,
@@ -111,37 +250,132 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Product created successfully.');
+            ->with(
+                'success',
+                'Product created successfully.'
+            );
     }
 
-    public function update(Request $request, Product $product)
-    {
-        $company = auth()->user()->companies()->first();
+    /*
+    |--------------------------------------------------------------------------
+    | Update
+    |--------------------------------------------------------------------------
+    */
+
+    public function update(
+        Request $request,
+        Product $product
+    ) {
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category_id' => ['nullable', 'exists:categories,id'],
-            'brand' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
 
-            'sku' => ['required', 'string', 'max:100'],
-            'variant_name' => ['required', 'string', 'max:255'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'cost_price' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'in:active,inactive'],
+        abort_unless(
+            $product->company_id === $company->id,
+            404
+        );
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'category_id' => [
+                'nullable',
+                'exists:categories,id',
+            ],
+
+            'brand' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'description' => [
+                'nullable',
+                'string',
+            ],
+
+            'sku' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'variant_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'price' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
+            'cost_price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+
+            'status' => [
+                'required',
+                'in:active,inactive',
+            ],
         ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Category Ownership
+        |--------------------------------------------------------------------------
+        */
+
+        $categoryId = $validated['category_id'] ?? null;
+
+        if ($categoryId) {
+            $categoryExists = Category::where(
+                'company_id',
+                $company->id
+            )
+                ->whereKey($categoryId)
+                ->exists();
+
+            abort_unless($categoryExists, 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Product
+        |--------------------------------------------------------------------------
+        */
+
         $product->update([
-            'category_id' => $validated['category_id'] ?? null,
+            'category_id' => $categoryId,
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'brand' => $validated['brand'] ?? null,
             'status' => $validated['status'],
         ]);
 
-        $variant = $product->variants()->first();
+        /*
+        |--------------------------------------------------------------------------
+        | Update Variant
+        |--------------------------------------------------------------------------
+        */
+
+        $variant = $product->variants()
+            ->where('company_id', $company->id)
+            ->first();
 
         if ($variant) {
             $variant->update([
@@ -155,19 +389,42 @@ class ProductController extends Controller
 
         return redirect()
             ->route('products.show', $product)
-            ->with('success', 'Product updated successfully.');
+            ->with(
+                'success',
+                'Product updated successfully.'
+            );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Destroy
+    |--------------------------------------------------------------------------
+    */
 
     public function destroy(Product $product)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
+
+        abort_unless(
+            $product->company_id === $company->id,
+            404
+        );
 
         $product->delete();
 
         return redirect()
             ->route('products.index')
-            ->with('success', 'Product deleted successfully.');
+            ->with(
+                'success',
+                'Product deleted successfully.'
+            );
     }
 }

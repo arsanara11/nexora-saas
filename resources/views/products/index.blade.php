@@ -24,7 +24,7 @@
                 HEADER
             ========================================================= --}}
 
-            <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 
                 <div>
 
@@ -53,7 +53,7 @@
                 </div>
 
 
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="flex flex-nowrap items-center gap-3">
 
                     {{-- Sync Status --}}
                     <div
@@ -67,6 +67,48 @@
                         Catalog synced
 
                     </div>
+
+
+                    {{-- Manage Categories --}}
+                    <a
+                        href="{{ route('categories.index') }}"
+                        class="group inline-flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-2.5 text-sm font-medium text-[#AEB4BE] transition hover:border-[#5E8BFF]/30 hover:bg-[#5E8BFF]/[0.07] hover:text-white"
+                    >
+
+                        <span
+                            class="flex h-5 w-5 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-[#8FAAFF] transition group-hover:border-[#5E8BFF]/20 group-hover:bg-[#5E8BFF]/10"
+                        >
+
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                            >
+
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M4 6.5A2.5 2.5 0 0 1 6.5 4H10l2 2h5.5A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Z"
+                                />
+
+                            </svg>
+
+                        </span>
+
+
+                        Manage Categories
+
+
+                        <span
+                            class="text-xs text-[#626A75] transition group-hover:translate-x-0.5 group-hover:text-[#9EB8FF]"
+                        >
+                            →
+                        </span>
+
+                    </a>
 
 
                     {{-- Add Product --}}

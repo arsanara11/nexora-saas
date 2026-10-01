@@ -8,6 +8,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckPermission
 {
+    /**
+     * Handle an incoming request.
+     */
     public function handle(
         Request $request,
         Closure $next,
@@ -17,9 +20,25 @@ class CheckPermission
 
         abort_unless($user, 401);
 
-        $company = $user->companies()->first();
+        /*
+        |--------------------------------------------------------------------------
+        | Current Company
+        |--------------------------------------------------------------------------
+        |
+        | SetCurrentCompany middleware resolves the company that is currently
+        | active for this authenticated user.
+        |
+        */
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve Role For Current Company
+        |--------------------------------------------------------------------------
+        */
 
         $role = $user->roles()
             ->where('roles.company_id', $company->id)
@@ -27,6 +46,12 @@ class CheckPermission
             ->first();
 
         abort_unless($role, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Check Permission
+        |--------------------------------------------------------------------------
+        */
 
         $hasPermission = $role->permissions
             ->contains('name', $permission);

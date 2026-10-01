@@ -12,7 +12,13 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $company = auth()->user()->companies()->first();
+        /*
+        |--------------------------------------------------------------------------
+        | Current Company
+        |--------------------------------------------------------------------------
+        */
+
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -33,7 +39,6 @@ class DashboardController extends Controller
             ->where('status', 'completed')
             ->sum('total');
 
-
         /*
         |--------------------------------------------------------------------------
         | Customers
@@ -44,7 +49,6 @@ class DashboardController extends Controller
             'company_id',
             $company->id
         )->count();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -72,7 +76,6 @@ class DashboardController extends Controller
             ->sortBy('available_quantity')
             ->values();
 
-
         /*
         |--------------------------------------------------------------------------
         | Recent Orders
@@ -90,7 +93,6 @@ class DashboardController extends Controller
             ->latest()
             ->limit(6)
             ->get();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -110,7 +112,6 @@ class DashboardController extends Controller
             ->latest()
             ->limit(6)
             ->get();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -142,7 +143,6 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('date');
 
-
         /*
         |--------------------------------------------------------------------------
         | Fill All 30 Days
@@ -152,7 +152,6 @@ class DashboardController extends Controller
         $salesOverview = collect();
 
         for ($i = 0; $i < 30; $i++) {
-
             $date = $startDate
                 ->copy()
                 ->addDays($i);
@@ -162,14 +161,12 @@ class DashboardController extends Controller
             $salesOverview->push(
                 (object) [
                     'date' => $dateKey,
-
                     'total' => isset($salesByDate[$dateKey])
                         ? (float) $salesByDate[$dateKey]->total
                         : 0,
                 ]
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -186,7 +183,6 @@ class DashboardController extends Controller
             )
             ->groupBy('status')
             ->pluck('total', 'status');
-
 
         /*
         |--------------------------------------------------------------------------

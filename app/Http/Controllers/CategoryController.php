@@ -11,9 +11,15 @@ use Illuminate\View\View;
 
 class CategoryController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Index
+    |--------------------------------------------------------------------------
+    */
+
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -23,12 +29,26 @@ class CategoryController extends Controller
             ->latest();
 
         if ($request->filled('search')) {
-            $search = trim($request->string('search')->toString());
+            $search = trim(
+                $request->string('search')->toString()
+            );
 
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('slug', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                $q->where(
+                    'name',
+                    'like',
+                    "%{$search}%"
+                )
+                    ->orWhere(
+                        'slug',
+                        'like',
+                        "%{$search}%"
+                    )
+                    ->orWhere(
+                        'description',
+                        'like',
+                        "%{$search}%"
+                    );
             });
         }
 
@@ -44,35 +64,66 @@ class CategoryController extends Controller
             ->withQueryString();
 
         $summary = [
-            'total' => Category::where('company_id', $company->id)->count(),
+            'total' => Category::where(
+                'company_id',
+                $company->id
+            )->count(),
 
-            'active' => Category::where('company_id', $company->id)
+            'active' => Category::where(
+                'company_id',
+                $company->id
+            )
                 ->where('is_active', true)
                 ->count(),
 
-            'inactive' => Category::where('company_id', $company->id)
+            'inactive' => Category::where(
+                'company_id',
+                $company->id
+            )
                 ->where('is_active', false)
                 ->count(),
 
-            'with_products' => Category::where('company_id', $company->id)
+            'with_products' => Category::where(
+                'company_id',
+                $company->id
+            )
                 ->has('products')
                 ->count(),
         ];
 
         return view(
             'categories.index',
-            compact('categories', 'summary')
+            compact(
+                'categories',
+                'summary'
+            )
         );
     }
 
-    public function create(): View
+    /*
+    |--------------------------------------------------------------------------
+    | Create
+    |--------------------------------------------------------------------------
+    */
+
+    public function create(Request $request): View
     {
+        $company = $request->attributes->get('currentCompany');
+
+        abort_unless($company, 403);
+
         return view('categories.create');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Store
+    |--------------------------------------------------------------------------
+    */
+
     public function store(Request $request): RedirectResponse
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -87,7 +138,6 @@ class CategoryController extends Controller
                 'nullable',
                 'string',
                 'max:255',
-
                 Rule::unique('categories', 'slug')
                     ->where(
                         fn ($query) => $query->where(
@@ -109,13 +159,17 @@ class CategoryController extends Controller
             ],
         ]);
 
-        $slug = $validated['slug'] ?? Str::slug($validated['name']);
+        $slug = $validated['slug']
+            ?? Str::slug($validated['name']);
 
         $baseSlug = $slug;
         $counter = 1;
 
         while (
-            Category::where('company_id', $company->id)
+            Category::where(
+                'company_id',
+                $company->id
+            )
                 ->where('slug', $slug)
                 ->exists()
         ) {
@@ -125,7 +179,10 @@ class CategoryController extends Controller
 
         $validated['slug'] = $slug;
         $validated['company_id'] = $company->id;
-        $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['is_active'] = $request->boolean(
+            'is_active',
+            true
+        );
 
         $category = Category::create($validated);
 
@@ -137,11 +194,25 @@ class CategoryController extends Controller
             );
     }
 
-    public function show(Request $request, Category $category): View
-    {
-        $company = $request->user()->companies()->first();
+    /*
+    |--------------------------------------------------------------------------
+    | Show
+    |--------------------------------------------------------------------------
+    */
+
+    public function show(
+        Request $request,
+        Category $category
+    ): View {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
 
         abort_unless(
             $category->company_id === $company->id,
@@ -154,7 +225,10 @@ class CategoryController extends Controller
 
         $products = $category
             ->products()
-            ->where('company_id', $company->id)
+            ->where(
+                'company_id',
+                $company->id
+            )
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -164,17 +238,20 @@ class CategoryController extends Controller
         | Product Summary
         |--------------------------------------------------------------------------
         |
-        | The current products table does not contain an is_active column.
-        | Therefore we do not query products.is_active here.
+        | The current products table does not contain an is_active
+        | column. Therefore we do not query products.is_active here.
         |
-        | Existing products are treated as current product records for
-        | the category summary without modifying the database.
+        | Existing products are treated as current product records
+        | for the category summary without modifying the database.
         |
         */
 
         $productTotal = $category
             ->products()
-            ->where('company_id', $company->id)
+            ->where(
+                'company_id',
+                $company->id
+            )
             ->count();
 
         $productSummary = [
@@ -193,13 +270,25 @@ class CategoryController extends Controller
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Edit
+    |--------------------------------------------------------------------------
+    */
+
     public function edit(
         Request $request,
         Category $category
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
 
         abort_unless(
             $category->company_id === $company->id,
@@ -212,13 +301,25 @@ class CategoryController extends Controller
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Update
+    |--------------------------------------------------------------------------
+    */
+
     public function update(
         Request $request,
         Category $category
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
 
         abort_unless(
             $category->company_id === $company->id,
@@ -236,7 +337,6 @@ class CategoryController extends Controller
                 'nullable',
                 'string',
                 'max:255',
-
                 Rule::unique('categories', 'slug')
                     ->ignore($category->id)
                     ->where(
@@ -266,9 +366,16 @@ class CategoryController extends Controller
         $counter = 1;
 
         while (
-            Category::where('company_id', $company->id)
+            Category::where(
+                'company_id',
+                $company->id
+            )
                 ->where('slug', $slug)
-                ->where('id', '!=', $category->id)
+                ->where(
+                    'id',
+                    '!=',
+                    $category->id
+                )
                 ->exists()
         ) {
             $slug = $baseSlug . '-' . $counter;
@@ -276,6 +383,7 @@ class CategoryController extends Controller
         }
 
         $validated['slug'] = $slug;
+
         $validated['is_active'] = $request->boolean(
             'is_active',
             true
@@ -293,13 +401,25 @@ class CategoryController extends Controller
             );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Toggle Status
+    |--------------------------------------------------------------------------
+    */
+
     public function toggleStatus(
         Request $request,
         Category $category
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
 
         abort_unless(
             $category->company_id === $company->id,
@@ -318,18 +438,36 @@ class CategoryController extends Controller
             );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Destroy
+    |--------------------------------------------------------------------------
+    */
+
     public function destroy(
         Request $request,
         Category $category
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Isolation
+        |--------------------------------------------------------------------------
+        */
 
         abort_unless(
             $category->company_id === $company->id,
             404
         );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent Delete When Used By Products
+        |--------------------------------------------------------------------------
+        */
 
         if ($category->products()->exists()) {
             return redirect()
