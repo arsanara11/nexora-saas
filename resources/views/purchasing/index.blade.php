@@ -73,6 +73,58 @@
                         Procurement workspace
                     </div>
 
+
+                    {{-- Manage Suppliers --}}
+                    <a
+                        href="{{ route('suppliers.index') }}"
+                        class="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3 text-sm font-medium text-[#AEB4BE] transition duration-200 hover:-translate-y-0.5 hover:border-sky-400/20 hover:bg-sky-400/[0.06] hover:text-white"
+                    >
+
+                        <span
+                            class="flex h-5 w-5 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-sky-300 transition duration-200 group-hover:border-sky-400/20 group-hover:bg-sky-400/[0.08]"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-3.5 w-3.5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+                                />
+                                <circle
+                                    cx="9"
+                                    cy="7"
+                                    r="4"
+                                />
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M22 21v-2a4 4 0 0 0-3-3.87"
+                                />
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M16 3.13a4 4 0 0 1 0 7.75"
+                                />
+                            </svg>
+                        </span>
+
+                        Manage Suppliers
+
+                        <span
+                            class="text-xs text-[#626A75] transition duration-200 group-hover:translate-x-0.5 group-hover:text-sky-300"
+                        >
+                            →
+                        </span>
+
+                    </a>
+
+
                     <a
                         href="{{ route('purchasing.create') }}"
                         class="group inline-flex items-center justify-center gap-2 rounded-2xl bg-[#F5F5F2] px-5 py-3 text-sm font-semibold text-[#080B10] transition duration-200 hover:-translate-y-0.5 hover:bg-white"

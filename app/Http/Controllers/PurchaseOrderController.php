@@ -17,7 +17,7 @@ class PurchaseOrderController extends Controller
 {
     public function index()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -39,7 +39,7 @@ class PurchaseOrderController extends Controller
 
     public function create()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -77,7 +77,7 @@ class PurchaseOrderController extends Controller
 
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -150,6 +150,12 @@ class PurchaseOrderController extends Controller
             ],
         ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Supplier Ownership
+        |--------------------------------------------------------------------------
+        */
+
         $supplier = Supplier::where(
             'id',
             $validated['supplier_id']
@@ -160,6 +166,12 @@ class PurchaseOrderController extends Controller
             )
             ->firstOrFail();
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Warehouse Ownership
+        |--------------------------------------------------------------------------
+        */
+
         $warehouse = Warehouse::where(
             'id',
             $validated['warehouse_id']
@@ -169,6 +181,12 @@ class PurchaseOrderController extends Controller
                 $company->id
             )
             ->firstOrFail();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Product Variant Ownership
+        |--------------------------------------------------------------------------
+        */
 
         $variantIds = $validated['product_variant_id'];
 
@@ -190,9 +208,17 @@ class PurchaseOrderController extends Controller
             'One or more selected product variants are invalid.'
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Calculate Subtotal
+        |--------------------------------------------------------------------------
+        */
+
         $subtotal = 0;
 
-        foreach ($variantIds as $index => $variantId) {
+        foreach (
+            $variantIds as $index => $variantId
+        ) {
             $quantity = (int) $validated['quantity'][$index];
 
             $unitCost = (float) $validated['unit_cost'][$index];
@@ -203,6 +229,12 @@ class PurchaseOrderController extends Controller
         $shippingCost = (float) (
             $validated['shipping_cost'] ?? 0
         );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Purchase Order
+        |--------------------------------------------------------------------------
+        */
 
         $purchaseOrder = DB::transaction(
             function () use (
@@ -219,7 +251,9 @@ class PurchaseOrderController extends Controller
                     'supplier_id' => $supplier->id,
                     'warehouse_id' => $warehouse->id,
                     'user_id' => auth()->id(),
-                    'po_number' => $this->generatePoNumber(),
+                    'po_number' => $this->generatePoNumber(
+                        $company->id
+                    ),
                     'status' => 'draft',
                     'subtotal' => $subtotal,
                     'tax' => 0,
@@ -284,7 +318,7 @@ class PurchaseOrderController extends Controller
 
     public function show(PurchaseOrder $purchaseOrder)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -308,7 +342,7 @@ class PurchaseOrderController extends Controller
 
     public function edit(PurchaseOrder $purchaseOrder)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -375,7 +409,7 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -446,6 +480,12 @@ class PurchaseOrderController extends Controller
             ],
         ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Supplier Ownership
+        |--------------------------------------------------------------------------
+        */
+
         $supplier = Supplier::where(
             'id',
             $validated['supplier_id']
@@ -456,6 +496,12 @@ class PurchaseOrderController extends Controller
             )
             ->firstOrFail();
 
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Warehouse Ownership
+        |--------------------------------------------------------------------------
+        */
+
         $warehouse = Warehouse::where(
             'id',
             $validated['warehouse_id']
@@ -465,6 +511,12 @@ class PurchaseOrderController extends Controller
                 $company->id
             )
             ->firstOrFail();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Product Variant Ownership
+        |--------------------------------------------------------------------------
+        */
 
         $variantIds = collect(
             $validated['items']
@@ -491,6 +543,12 @@ class PurchaseOrderController extends Controller
             'One or more selected product variants are invalid.'
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Calculate Subtotal
+        |--------------------------------------------------------------------------
+        */
+
         $subtotal = 0;
 
         foreach ($validated['items'] as $item) {
@@ -502,6 +560,12 @@ class PurchaseOrderController extends Controller
         $shippingCost = (float) (
             $validated['shipping_cost'] ?? 0
         );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Purchase Order
+        |--------------------------------------------------------------------------
+        */
 
         DB::transaction(
             function () use (
@@ -580,7 +644,7 @@ class PurchaseOrderController extends Controller
         Request $request,
         PurchaseOrder $purchaseOrder
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -663,12 +727,58 @@ class PurchaseOrderController extends Controller
                     $currentStatus === 'ordered' &&
                     $newStatus === 'received'
                 ) {
-                    $purchaseOrder->load('items');
+                    $purchaseOrder->load(
+                        'items'
+                    );
 
-                    foreach ($purchaseOrder->items as $item) {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Validate Warehouse Ownership
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $warehouse = Warehouse::where(
+                        'id',
+                        $purchaseOrder->warehouse_id
+                    )
+                        ->where(
+                            'company_id',
+                            $purchaseOrder->company_id
+                        )
+                        ->firstOrFail();
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Validate Product Variant Ownership
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $variantIds = $purchaseOrder->items
+                        ->pluck('product_variant_id')
+                        ->unique();
+
+                    $validVariantCount = ProductVariant::where(
+                        'company_id',
+                        $purchaseOrder->company_id
+                    )
+                        ->whereIn(
+                            'id',
+                            $variantIds
+                        )
+                        ->count();
+
+                    abort_if(
+                        $validVariantCount !== $variantIds->count(),
+                        422,
+                        'One or more purchase order variants are invalid.'
+                    );
+
+                    foreach (
+                        $purchaseOrder->items as $item
+                    ) {
                         $inventory = Inventory::firstOrNew([
                             'warehouse_id' =>
-                                $purchaseOrder->warehouse_id,
+                                $warehouse->id,
 
                             'product_variant_id' =>
                                 $item->product_variant_id,
@@ -702,7 +812,7 @@ class PurchaseOrderController extends Controller
                                 $purchaseOrder->company_id,
 
                             'warehouse_id' =>
-                                $purchaseOrder->warehouse_id,
+                                $warehouse->id,
 
                             'product_variant_id' =>
                                 $item->product_variant_id,
@@ -826,9 +936,10 @@ class PurchaseOrderController extends Controller
             );
     }
 
-    public function destroy(PurchaseOrder $purchaseOrder)
-    {
-        $company = auth()->user()->companies()->first();
+    public function destroy(
+        PurchaseOrder $purchaseOrder
+    ) {
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -869,8 +980,9 @@ class PurchaseOrderController extends Controller
             );
     }
 
-    private function generatePoNumber(): string
-    {
+    private function generatePoNumber(
+        int $companyId
+    ): string {
         do {
             $number =
                 'PO-'
@@ -881,9 +993,14 @@ class PurchaseOrderController extends Controller
                 );
         } while (
             PurchaseOrder::where(
-                'po_number',
-                $number
-            )->exists()
+                'company_id',
+                $companyId
+            )
+                ->where(
+                    'po_number',
+                    $number
+                )
+                ->exists()
         );
 
         return $number;

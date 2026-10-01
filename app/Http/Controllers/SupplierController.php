@@ -12,7 +12,7 @@ class SupplierController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -84,16 +84,18 @@ class SupplierController extends Controller
         );
     }
 
-
-    public function create(): View
+    public function create(Request $request): View
     {
+        $company = $request->attributes->get('currentCompany');
+
+        abort_unless($company, 403);
+
         return view('suppliers.create');
     }
 
-
     public function store(Request $request): RedirectResponse
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -176,12 +178,11 @@ class SupplierController extends Controller
             );
     }
 
-
     public function show(
         Request $request,
         Supplier $supplier
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -268,10 +269,9 @@ class SupplierController extends Controller
         );
     }
 
-
-    public function edit(Supplier $supplier): View
+    public function edit(Request $request, Supplier $supplier): View
     {
-        $company = request()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -286,12 +286,11 @@ class SupplierController extends Controller
         );
     }
 
-
     public function update(
         Request $request,
         Supplier $supplier
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -377,12 +376,11 @@ class SupplierController extends Controller
             );
     }
 
-
     public function destroy(
         Request $request,
         Supplier $supplier
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -412,12 +410,11 @@ class SupplierController extends Controller
             );
     }
 
-
     public function toggleStatus(
         Request $request,
         Supplier $supplier
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 

@@ -9,21 +9,27 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $customers = Customer::where('company_id', $company->id)
+        $customers = Customer::where(
+            'company_id',
+            $company->id
+        )
             ->withCount('orders')
             ->latest()
             ->get();
 
-        return view('customers.index', compact('customers'));
+        return view(
+            'customers.index',
+            compact('customers')
+        );
     }
 
     public function create()
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -32,7 +38,7 @@ class CustomerController extends Controller
 
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -93,7 +99,7 @@ class CustomerController extends Controller
 
     public function show(Customer $customer)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -116,7 +122,7 @@ class CustomerController extends Controller
 
     public function edit(Customer $customer)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -135,7 +141,7 @@ class CustomerController extends Controller
         Request $request,
         Customer $customer
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -203,7 +209,7 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
-        $company = auth()->user()->companies()->first();
+        $company = request()->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 

@@ -21,27 +21,54 @@
                 </p>
             </div>
 
-            <a
-                href="{{ route('suppliers.create') }}"
-                class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F5F5F2] px-5 text-sm font-semibold text-[#0B0D10] transition hover:bg-white"
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M12 5v14M5 12h14"
-                    />
-                </svg>
+            <div class="flex flex-wrap items-center gap-3">
 
-                Add Supplier
-            </a>
+                {{-- Back to Purchasing --}}
+                <a
+                    href="{{ route('purchasing.index') }}"
+                    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#2A3039] bg-[#12151A] px-4 text-sm font-medium text-[#AEB4BD] transition hover:border-[#454C59] hover:bg-[#171B22] hover:text-white"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M15 19l-7-7 7-7"
+                        />
+                    </svg>
+
+                    Purchasing
+                </a>
+
+                <a
+                    href="{{ route('suppliers.create') }}"
+                    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F5F5F2] px-5 text-sm font-semibold text-[#0B0D10] transition hover:bg-white"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 5v14M5 12h14"
+                        />
+                    </svg>
+
+                    Add Supplier
+                </a>
+
+            </div>
 
         </div>
 
