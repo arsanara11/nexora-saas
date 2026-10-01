@@ -82,6 +82,7 @@
                             stroke-linejoin="round"
                             d="M12 3l2.2 4.5L19 9.2l-4.5 2.2L12 16l-2.5-4.6L5 9.2l4.8-1.7L12 3z"
                         />
+
                         <path
                             stroke-linecap="round"
                             stroke-linejoin="round"
@@ -99,11 +100,13 @@
                     href="{{ route('team.create') }}"
                     class="group inline-flex items-center gap-2 rounded-2xl bg-[#8B7CFF] px-5 py-3 text-sm font-medium text-white shadow-[0_10px_30px_rgba(139,124,255,0.18)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#7C6EF0] hover:shadow-[0_14px_34px_rgba(139,124,255,0.24)]"
                 >
+
                     <span class="text-base leading-none transition-transform duration-200 group-hover:rotate-90">
                         +
                     </span>
 
                     Add Member
+
                 </a>
 
             </div>
@@ -304,13 +307,15 @@
         </div>
 
 
-        {{-- Team Table Surface --}}
+        {{-- Team Directory --}}
         <div
             class="relative mt-6 overflow-hidden rounded-[30px] border border-white/[0.055] bg-[#11151A]/95 shadow-[0_30px_80px_rgba(0,0,0,0.22)] backdrop-blur-xl"
         >
 
             {{-- Directory Header --}}
-            <div class="relative flex flex-col gap-4 border-b border-white/[0.045] px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <div
+                class="relative flex flex-col gap-4 border-b border-white/[0.045] px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7"
+            >
 
                 <div>
 
@@ -339,196 +344,209 @@
 
             @if ($members->count())
 
-                <div class="overflow-x-auto">
+                {{-- Team Table --}}
+                <div class="overflow-x-auto px-4 py-5 sm:px-5">
 
-                    <table class="min-w-full">
+                    {{-- Column Header --}}
+                    <div
+                        class="grid min-w-[900px] grid-cols-[minmax(240px,1.35fr)_minmax(200px,1.15fr)_150px_140px_110px] items-center gap-4 px-5 pb-3 sm:px-6"
+                    >
 
-                        <thead>
+                        <div class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
+                            Member
+                        </div>
 
-                            <tr class="border-b border-white/[0.045] text-left">
+                        <div class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
+                            Contact
+                        </div>
 
-                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78] sm:px-7">
-                                    Member
-                                </th>
+                        <div class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
+                            Role
+                        </div>
 
-                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
-                                    Contact
-                                </th>
+                        <div class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
+                            Status
+                        </div>
 
-                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
-                                    Role
-                                </th>
+                        <div class="text-right text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
+                            Action
+                        </div>
 
-                                <th class="px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
-                                    Status
-                                </th>
+                    </div>
 
-                                <th class="px-6 py-4 text-right text-[10px] font-semibold uppercase tracking-[0.16em] text-[#666D78]">
-                                    Action
-                                </th>
 
-                            </tr>
+                    {{-- Member Cards --}}
+                    <div class="min-w-[900px] space-y-3">
 
-                        </thead>
+                        @foreach ($members as $member)
 
+                            <div
+                                class="group grid min-h-[96px] grid-cols-[minmax(240px,1.35fr)_minmax(200px,1.15fr)_150px_140px_110px] items-center gap-4 rounded-[24px] border border-white/[0.055] bg-[#12161B] px-5 py-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-[1px] hover:border-[#8B7CFF]/20 hover:bg-[#151920] hover:shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:px-6"
+                            >
 
-                        <tbody class="divide-y divide-white/[0.035]">
+                                {{-- Member --}}
+                                <div class="min-w-0">
 
-                            @foreach ($members as $member)
+                                    <div class="flex items-center gap-4">
 
-                                <tr class="group transition duration-200 hover:bg-white/[0.018]">
-
-                                    {{-- Member --}}
-                                    <td class="whitespace-nowrap px-6 py-5 sm:px-7">
-
-                                        <div class="flex items-center gap-4">
-
-                                            <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#8B7CFF]/10 bg-[#171B22] text-sm font-semibold text-[#A99FFF] transition duration-200 group-hover:border-[#8B7CFF]/25 group-hover:bg-[#8B7CFF]/[0.07]">
-
-                                                <span class="relative z-10">
-                                                    {{ strtoupper(substr($member->name, 0, 1)) }}
-                                                </span>
-
-                                                <span class="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(139,124,255,0.14),transparent_55%)]"></span>
-
-                                            </div>
-
-
-                                            <div class="min-w-0">
-
-                                                <p class="max-w-[240px] truncate text-sm font-medium text-[#F5F5F2]">
-                                                    {{ $member->name }}
-                                                </p>
-
-                                                <p class="mt-1 text-xs text-[#6F7681]">
-                                                    Member #{{ $member->id }}
-                                                </p>
-
-                                            </div>
-
-                                        </div>
-
-                                    </td>
-
-
-                                    {{-- Contact --}}
-                                    <td class="whitespace-nowrap px-6 py-5">
-
-                                        <div class="flex items-center gap-2">
-
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-4 w-4 text-[#565D67]"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                stroke-width="1.8"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    d="M3 8l9 6 9-6"
-                                                />
-
-                                                <rect
-                                                    x="3"
-                                                    y="5"
-                                                    width="18"
-                                                    height="14"
-                                                    rx="2"
-                                                />
-                                            </svg>
-
-                                            <span class="text-sm text-[#C5CAD2]">
-                                                {{ $member->email }}
-                                            </span>
-
-                                        </div>
-
-                                    </td>
-
-
-                                    {{-- Role --}}
-                                    <td class="px-6 py-5">
-
-                                        @if ($member->roles->count())
-
-                                            <div class="flex flex-wrap gap-2">
-
-                                                @foreach ($member->roles as $role)
-
-                                                    <span class="inline-flex items-center rounded-xl border border-[#8B7CFF]/15 bg-[#8B7CFF]/[0.07] px-3 py-1.5 text-[11px] font-medium text-[#A99FFF]">
-                                                        {{ $role->name }}
-                                                    </span>
-
-                                                @endforeach
-
-                                            </div>
-
-                                        @else
-
-                                            <span class="text-sm text-[#505761]">
-                                                No role assigned
-                                            </span>
-
-                                        @endif
-
-                                    </td>
-
-
-                                    {{-- Status --}}
-                                    <td class="whitespace-nowrap px-6 py-5">
-
-                                        @if ($member->is_active)
-
-                                            <span class="inline-flex items-center rounded-full border border-[#294333] bg-[#122019] px-3 py-1.5 text-[11px] font-medium text-[#9FE2B5] shadow-[0_0_20px_rgba(99,216,137,0.05)]">
-
-                                                <span class="mr-2 h-1.5 w-1.5 rounded-full bg-[#63D889] shadow-[0_0_8px_rgba(99,216,137,0.75)]"></span>
-
-                                                Active
-
-                                            </span>
-
-                                        @else
-
-                                            <span class="inline-flex items-center rounded-full border border-[#3A3E45] bg-[#1A1D22] px-3 py-1.5 text-[11px] font-medium text-[#8B919A]">
-
-                                                <span class="mr-2 h-1.5 w-1.5 rounded-full bg-[#686F79]"></span>
-
-                                                Inactive
-
-                                            </span>
-
-                                        @endif
-
-                                    </td>
-
-
-                                    {{-- Action --}}
-                                    <td class="whitespace-nowrap px-6 py-5 text-right">
-
-                                        <a
-                                            href="{{ route('team.edit', $member) }}"
-                                            class="inline-flex items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.018] px-3 py-2 text-xs font-medium text-[#9C91FF] transition duration-200 hover:border-[#8B7CFF]/20 hover:bg-[#8B7CFF]/[0.07] hover:text-white"
+                                        <div
+                                            class="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-[#8B7CFF]/10 bg-[#171B22] text-sm font-semibold text-[#A99FFF] transition duration-200 group-hover:border-[#8B7CFF]/25 group-hover:bg-[#8B7CFF]/[0.07]"
                                         >
 
-                                            Manage
-
-                                            <span class="transition-transform duration-200 group-hover:translate-x-0.5">
-                                                →
+                                            <span class="relative z-10">
+                                                {{ strtoupper(substr($member->name, 0, 1)) }}
                                             </span>
 
-                                        </a>
+                                            <span class="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(139,124,255,0.14),transparent_55%)]"></span>
 
-                                    </td>
+                                        </div>
 
-                                </tr>
 
-                            @endforeach
+                                        <div class="min-w-0">
 
-                        </tbody>
+                                            <p class="truncate text-sm font-semibold text-[#F5F5F2]">
+                                                {{ $member->name }}
+                                            </p>
 
-                    </table>
+                                            <p class="mt-1 text-xs text-[#6F7681]">
+                                                Member #{{ $member->id }}
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                {{-- Contact --}}
+                                <div class="min-w-0">
+
+                                    <div class="flex min-w-0 items-center gap-2">
+
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-4 w-4 shrink-0 text-[#565D67]"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            stroke-width="1.8"
+                                        >
+
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M3 8l9 6 9-6"
+                                            />
+
+                                            <rect
+                                                x="3"
+                                                y="5"
+                                                width="18"
+                                                height="14"
+                                                rx="2"
+                                            />
+
+                                        </svg>
+
+                                        <span class="truncate text-sm text-[#C5CAD2]">
+                                            {{ $member->email }}
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+
+                                {{-- Role --}}
+                                <div class="min-w-0">
+
+                                    @if ($member->roles->count())
+
+                                        <div class="flex flex-wrap gap-2">
+
+                                            @foreach ($member->roles as $role)
+
+                                                <span
+                                                    class="inline-flex items-center rounded-xl border border-[#8B7CFF]/15 bg-[#8B7CFF]/[0.07] px-3 py-1.5 text-[11px] font-medium text-[#A99FFF]"
+                                                >
+                                                    {{ $role->name }}
+                                                </span>
+
+                                            @endforeach
+
+                                        </div>
+
+                                    @else
+
+                                        <span class="text-sm text-[#505761]">
+                                            No role assigned
+                                        </span>
+
+                                    @endif
+
+                                </div>
+
+
+                                {{-- Status --}}
+                                <div class="whitespace-nowrap">
+
+                                    @if ($member->is_active)
+
+                                        <span
+                                            class="inline-flex items-center rounded-full border border-[#294333] bg-[#122019] px-3 py-1.5 text-[11px] font-medium text-[#9FE2B5] shadow-[0_0_20px_rgba(99,216,137,0.05)]"
+                                        >
+
+                                            <span
+                                                class="mr-2 h-1.5 w-1.5 rounded-full bg-[#63D889] shadow-[0_0_8px_rgba(99,216,137,0.75)]"
+                                            ></span>
+
+                                            Active
+
+                                        </span>
+
+                                    @else
+
+                                        <span
+                                            class="inline-flex items-center rounded-full border border-[#3A3E45] bg-[#1A1D22] px-3 py-1.5 text-[11px] font-medium text-[#8B919A]"
+                                        >
+
+                                            <span class="mr-2 h-1.5 w-1.5 rounded-full bg-[#686F79]"></span>
+
+                                            Inactive
+
+                                        </span>
+
+                                    @endif
+
+                                </div>
+
+
+                                {{-- Action --}}
+                                <div class="flex justify-end">
+
+                                    <a
+                                        href="{{ route('team.edit', $member) }}"
+                                        class="inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.018] px-3 text-xs font-medium text-[#9C91FF] transition duration-200 hover:border-[#8B7CFF]/20 hover:bg-[#8B7CFF]/[0.07] hover:text-white"
+                                    >
+
+                                        <span>
+                                            Manage
+                                        </span>
+
+                                        <span class="transition-transform duration-200 group-hover:translate-x-0.5">
+                                            →
+                                        </span>
+
+                                    </a>
+
+                                </div>
+
+                            </div>
+
+                        @endforeach
+
+                    </div>
 
                 </div>
 
@@ -537,7 +555,9 @@
                 {{-- Empty State --}}
                 <div class="px-6 py-20 text-center sm:px-8">
 
-                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#8B7CFF]/10 bg-[#171B22] text-[#A99FFF] shadow-[0_18px_45px_rgba(0,0,0,0.18)]">
+                    <div
+                        class="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#8B7CFF]/10 bg-[#171B22] text-[#A99FFF] shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
+                    >
 
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -547,6 +567,7 @@
                             stroke="currentColor"
                             stroke-width="1.8"
                         >
+
                             <path
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
@@ -564,6 +585,7 @@
                                 stroke-linejoin="round"
                                 d="M22 21v-2a4 4 0 00-3-3.87m-1-8.13a4 4 0 010 7.75"
                             />
+
                         </svg>
 
                     </div>
@@ -583,11 +605,13 @@
                         href="{{ route('team.create') }}"
                         class="group mt-6 inline-flex items-center gap-2 rounded-2xl bg-[#8B7CFF] px-5 py-3 text-sm font-medium text-white shadow-[0_10px_30px_rgba(139,124,255,0.18)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#7C6EF0]"
                     >
+
                         <span class="text-base leading-none transition-transform duration-200 group-hover:rotate-90">
                             +
                         </span>
 
                         Add Member
+
                     </a>
 
                 </div>
