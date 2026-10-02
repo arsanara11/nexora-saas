@@ -1196,7 +1196,6 @@
                         </div>
 
 
-                        {{-- ONLY ADDED: View All Payments --}}
                         <a
                             href="{{ route('finance.payments.index') }}"
                             class="nx-chip rounded-xl px-3 py-2 text-xs font-medium text-[#9FE2B5] transition hover:border-[#63D889]/40 hover:text-white"
@@ -1334,6 +1333,14 @@
                         </svg>
 
                     </div>
+
+                    {{-- ONLY ADDITION: Expense navigation --}}
+                    <a
+                        href="{{ route('finance.expenses.index') }}"
+                        class="absolute right-20 top-5 nx-chip rounded-xl px-3 py-2 text-xs font-medium text-[#D88E8E] transition hover:border-[#D88E8E]/40 hover:text-white"
+                    >
+                        View all →
+                    </a>
 
                 </div>
 

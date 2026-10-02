@@ -15,7 +15,7 @@ class ExpenseController extends Controller
      */
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -31,9 +31,21 @@ class ExpenseController extends Controller
             );
 
             $query->where(function ($q) use ($search) {
-                $q->where('category', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('status', 'like', "%{$search}%");
+                $q->where(
+                    'category',
+                    'like',
+                    "%{$search}%"
+                )
+                    ->orWhere(
+                        'description',
+                        'like',
+                        "%{$search}%"
+                    )
+                    ->orWhere(
+                        'status',
+                        'like',
+                        "%{$search}%"
+                    );
             });
         }
 
@@ -75,9 +87,9 @@ class ExpenseController extends Controller
             ->withQueryString();
 
         $categories = Expense::where(
-                'company_id',
-                $company->id
-            )
+            'company_id',
+            $company->id
+        )
             ->whereNotNull('category')
             ->where('category', '!=', '')
             ->distinct()
@@ -91,23 +103,23 @@ class ExpenseController extends Controller
             )->count(),
 
             'pending' => Expense::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'pending')
                 ->count(),
 
             'paid' => Expense::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'paid')
                 ->count(),
 
             'cancelled' => Expense::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'cancelled')
                 ->count(),
 
@@ -117,9 +129,9 @@ class ExpenseController extends Controller
             )->sum('amount'),
 
             'paid_amount' => Expense::where(
-                    'company_id',
-                    $company->id
-                )
+                'company_id',
+                $company->id
+            )
                 ->where('status', 'paid')
                 ->sum('amount'),
         ];
@@ -139,14 +151,14 @@ class ExpenseController extends Controller
      */
     public function create(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
         $categories = Expense::where(
-                'company_id',
-                $company->id
-            )
+            'company_id',
+            $company->id
+        )
             ->whereNotNull('category')
             ->where('category', '!=', '')
             ->distinct()
@@ -165,7 +177,8 @@ class ExpenseController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        $company = $user->companies()->first();
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -243,7 +256,7 @@ class ExpenseController extends Controller
         Request $request,
         Expense $expense
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -267,7 +280,7 @@ class ExpenseController extends Controller
         Request $request,
         Expense $expense
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -277,9 +290,9 @@ class ExpenseController extends Controller
         );
 
         $categories = Expense::where(
-                'company_id',
-                $company->id
-            )
+            'company_id',
+            $company->id
+        )
             ->whereNotNull('category')
             ->where('category', '!=', '')
             ->distinct()
@@ -303,7 +316,8 @@ class ExpenseController extends Controller
         Expense $expense
     ): RedirectResponse {
         $user = $request->user();
-        $company = $user->companies()->first();
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -407,7 +421,7 @@ class ExpenseController extends Controller
             $user->notify(
                 new SystemNotification(
                     'Expense Description Updated',
-                    "Expense description was changed.",
+                    'Expense description was changed.',
                     'finance',
                     '≡'
                 )
@@ -433,7 +447,8 @@ class ExpenseController extends Controller
         Expense $expense
     ): RedirectResponse {
         $user = $request->user();
-        $company = $user->companies()->first();
+
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 

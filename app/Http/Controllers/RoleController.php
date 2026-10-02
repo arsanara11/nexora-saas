@@ -10,13 +10,16 @@ use Illuminate\Support\Str;
 
 class RoleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $roles = Role::where('company_id', $company->id)
+        $roles = Role::where(
+            'company_id',
+            $company->id
+        )
             ->with('permissions')
             ->withCount('permissions')
             ->orderBy('name')
@@ -28,9 +31,9 @@ class RoleController extends Controller
         );
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -45,7 +48,7 @@ class RoleController extends Controller
 
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -55,18 +58,15 @@ class RoleController extends Controller
                 'string',
                 'max:255',
             ],
-
             'description' => [
                 'nullable',
                 'string',
                 'max:1000',
             ],
-
             'permissions' => [
                 'nullable',
                 'array',
             ],
-
             'permissions.*' => [
                 'integer',
                 'exists:permissions,id',
@@ -82,7 +82,9 @@ class RoleController extends Controller
 
         $permissionIds = $validated['permissions'] ?? [];
 
-        $role->permissions()->sync($permissionIds);
+        $role->permissions()->sync(
+            $permissionIds
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -91,7 +93,10 @@ class RoleController extends Controller
         */
 
         if (! empty($permissionIds)) {
-            $permissionNames = Permission::whereIn('id', $permissionIds)
+            $permissionNames = Permission::whereIn(
+                'id',
+                $permissionIds
+            )
                 ->orderBy('name')
                 ->pluck('name')
                 ->values()
@@ -99,7 +104,7 @@ class RoleController extends Controller
 
             AuditLog::create([
                 'company_id' => $company->id,
-                'user_id' => auth()->id(),
+                'user_id' => $request->user()?->id,
                 'action' => 'permissions_updated',
                 'auditable_type' => Role::class,
                 'auditable_id' => $role->id,
@@ -108,8 +113,8 @@ class RoleController extends Controller
                     'role' => $role->name,
                     'permissions' => $permissionNames,
                 ],
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         }
 
@@ -121,9 +126,11 @@ class RoleController extends Controller
             );
     }
 
-    public function edit(Role $role)
-    {
-        $company = auth()->user()->companies()->first();
+    public function edit(
+        Request $request,
+        Role $role
+    ) {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -150,7 +157,7 @@ class RoleController extends Controller
         Request $request,
         Role $role
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -165,18 +172,15 @@ class RoleController extends Controller
                 'string',
                 'max:255',
             ],
-
             'description' => [
                 'nullable',
                 'string',
                 'max:1000',
             ],
-
             'permissions' => [
                 'nullable',
                 'array',
             ],
-
             'permissions.*' => [
                 'integer',
                 'exists:permissions,id',
@@ -204,7 +208,6 @@ class RoleController extends Controller
             ->values()
             ->toArray();
 
-
         /*
         |--------------------------------------------------------------------------
         | Update Role
@@ -217,7 +220,6 @@ class RoleController extends Controller
             'description' => $validated['description'] ?? null,
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Sync Permissions
@@ -227,13 +229,16 @@ class RoleController extends Controller
         $permissionIds = $validated['permissions'] ?? [];
 
         $newPermissionIds = collect($permissionIds)
-            ->map(fn ($id) => (int) $id)
+            ->map(
+                fn ($id) => (int) $id
+            )
             ->sort()
             ->values()
             ->toArray();
 
-        $role->permissions()->sync($newPermissionIds);
-
+        $role->permissions()->sync(
+            $newPermissionIds
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -242,7 +247,6 @@ class RoleController extends Controller
         */
 
         if ($oldPermissionIds !== $newPermissionIds) {
-
             $newPermissionNames = Permission::whereIn(
                 'id',
                 $newPermissionIds
@@ -254,7 +258,7 @@ class RoleController extends Controller
 
             AuditLog::create([
                 'company_id' => $company->id,
-                'user_id' => auth()->id(),
+                'user_id' => $request->user()?->id,
                 'action' => 'permissions_updated',
                 'auditable_type' => Role::class,
                 'auditable_id' => $role->id,
@@ -266,8 +270,8 @@ class RoleController extends Controller
                     'role' => $role->name,
                     'permissions' => $newPermissionNames,
                 ],
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         }
 
@@ -279,9 +283,11 @@ class RoleController extends Controller
             );
     }
 
-    public function destroy(Role $role)
-    {
-        $company = auth()->user()->companies()->first();
+    public function destroy(
+        Request $request,
+        Role $role
+    ) {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -329,7 +335,6 @@ class RoleController extends Controller
             ->values()
             ->toArray();
 
-
         /*
         |--------------------------------------------------------------------------
         | Detach Permissions
@@ -337,7 +342,6 @@ class RoleController extends Controller
         */
 
         $role->permissions()->detach();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -348,7 +352,7 @@ class RoleController extends Controller
         if (! empty($permissionNames)) {
             AuditLog::create([
                 'company_id' => $company->id,
-                'user_id' => auth()->id(),
+                'user_id' => $request->user()?->id,
                 'action' => 'permissions_detached',
                 'auditable_type' => Role::class,
                 'auditable_id' => $role->id,
@@ -359,11 +363,10 @@ class RoleController extends Controller
                 'new_values' => [
                     'permissions' => [],
                 ],
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------

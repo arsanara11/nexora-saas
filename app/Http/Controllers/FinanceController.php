@@ -13,7 +13,7 @@ class FinanceController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -30,7 +30,6 @@ class FinanceController extends Controller
             ->where('status', 'paid')
             ->sum('total');
 
-
         /*
         |--------------------------------------------------------------------------
         | Expenses
@@ -44,7 +43,6 @@ class FinanceController extends Controller
             ->where('status', 'paid')
             ->sum('amount');
 
-
         /*
         |--------------------------------------------------------------------------
         | Net Profit
@@ -52,7 +50,6 @@ class FinanceController extends Controller
         */
 
         $netProfit = $totalRevenue - $totalExpenses;
-
 
         /*
         |--------------------------------------------------------------------------
@@ -70,7 +67,6 @@ class FinanceController extends Controller
             ])
             ->sum('total');
 
-
         /*
         |--------------------------------------------------------------------------
         | Invoice Summary
@@ -86,7 +82,6 @@ class FinanceController extends Controller
             )
             ->groupBy('status')
             ->pluck('total', 'status');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -105,7 +100,6 @@ class FinanceController extends Controller
             ->limit(8)
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Recent Payments
@@ -122,7 +116,6 @@ class FinanceController extends Controller
             ->latest()
             ->limit(8)
             ->get();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -141,7 +134,6 @@ class FinanceController extends Controller
             ->limit(8)
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Financial Overview - Last 6 Months
@@ -154,7 +146,6 @@ class FinanceController extends Controller
 
         $endDate = Carbon::today()
             ->endOfMonth();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -183,7 +174,6 @@ class FinanceController extends Controller
             ->get()
             ->keyBy('month');
 
-
         /*
         |--------------------------------------------------------------------------
         | Expenses By Month
@@ -209,7 +199,6 @@ class FinanceController extends Controller
             ->orderBy('month')
             ->get()
             ->keyBy('month');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -245,7 +234,6 @@ class FinanceController extends Controller
             );
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | Payment Summary
@@ -261,7 +249,6 @@ class FinanceController extends Controller
             )
             ->groupBy('status')
             ->pluck('total', 'status');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -281,7 +268,6 @@ class FinanceController extends Controller
             ->orderByDesc('total')
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Expense Category Summary
@@ -299,7 +285,6 @@ class FinanceController extends Controller
             ->groupBy('category')
             ->orderByDesc('total')
             ->get();
-
 
         /*
         |--------------------------------------------------------------------------

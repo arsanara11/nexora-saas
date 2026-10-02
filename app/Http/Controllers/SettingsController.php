@@ -9,18 +9,21 @@ use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        return view('settings.index', compact('company'));
+        return view(
+            'settings.index',
+            compact('company')
+        );
     }
 
     public function update(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -36,8 +39,10 @@ class SettingsController extends Controller
                 'string',
                 'max:255',
                 'alpha_dash',
-                Rule::unique('companies', 'slug')
-                    ->ignore($company->id),
+                Rule::unique(
+                    'companies',
+                    'slug'
+                )->ignore($company->id),
             ],
 
             'email' => [
@@ -81,24 +86,32 @@ class SettingsController extends Controller
 
         if ($request->hasFile('logo')) {
             if ($company->logo) {
-                Storage::disk('public')->delete($company->logo);
+                Storage::disk('public')->delete(
+                    $company->logo
+                );
             }
 
-            $logoPath = $request->file('logo')->store(
-                'logos',
-                'public'
-            );
+            $logoPath = $request
+                ->file('logo')
+                ->store(
+                    'logos',
+                    'public'
+                );
         }
 
         $company->update([
             'name' => $validated['name'],
-            'slug' => Str::slug($validated['slug']),
+            'slug' => Str::slug(
+                $validated['slug']
+            ),
             'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'address' => $validated['address'] ?? null,
             'logo' => $logoPath,
             'timezone' => $validated['timezone'],
-            'currency' => strtoupper($validated['currency']),
+            'currency' => strtoupper(
+                $validated['currency']
+            ),
         ]);
 
         return redirect()

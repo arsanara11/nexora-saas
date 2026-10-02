@@ -4,24 +4,30 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $query = $this->filteredQuery($request, $company->id);
+        $query = $this->filteredQuery(
+            $request,
+            $company->id
+        );
 
         $logs = $query
             ->paginate(15)
             ->withQueryString();
 
-        $actions = AuditLog::where('company_id', $company->id)
+        $actions = AuditLog::where(
+            'company_id',
+            $company->id
+        )
             ->whereNotNull('action')
             ->distinct()
             ->orderBy('action')
@@ -37,7 +43,10 @@ class AuditLogController extends Controller
                 'company_id',
                 $company->id
             )
-                ->whereDate('created_at', today())
+                ->whereDate(
+                    'created_at',
+                    today()
+                )
                 ->count(),
 
             'users' => AuditLog::where(
@@ -66,10 +75,10 @@ class AuditLogController extends Controller
         );
     }
 
-
-    public function export(Request $request): StreamedResponse
-    {
-        $company = $request->user()->companies()->first();
+    public function export(
+        Request $request
+    ): StreamedResponse {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -80,14 +89,16 @@ class AuditLogController extends Controller
             ->with('user')
             ->get();
 
-
-        $filename = 'nexora-audit-log-' . now()->format('Y-m-d-H-i-s') . '.csv';
-
+        $filename = 'nexora-audit-log-'
+            . now()->format('Y-m-d-H-i-s')
+            . '.csv';
 
         return response()->streamDownload(
             function () use ($logs) {
-
-                $handle = fopen('php://output', 'w');
+                $handle = fopen(
+                    'php://output',
+                    'w'
+                );
 
                 /*
                 |--------------------------------------------------------------------------
@@ -107,7 +118,6 @@ class AuditLogController extends Controller
                     'New Values',
                 ]);
 
-
                 /*
                 |--------------------------------------------------------------------------
                 | CSV Rows
@@ -115,7 +125,6 @@ class AuditLogController extends Controller
                 */
 
                 foreach ($logs as $log) {
-
                     $oldValues = $this->maskSensitiveValues(
                         $log->old_values ?? []
                     );
@@ -123,7 +132,6 @@ class AuditLogController extends Controller
                     $newValues = $this->maskSensitiveValues(
                         $log->new_values ?? []
                     );
-
 
                     fputcsv($handle, [
                         optional($log->created_at)
@@ -145,31 +153,32 @@ class AuditLogController extends Controller
 
                         json_encode(
                             $oldValues,
-                            JSON_UNESCAPED_UNICODE |
-                            JSON_UNESCAPED_SLASHES
+                            JSON_UNESCAPED_UNICODE
+                                | JSON_UNESCAPED_SLASHES
                         ),
 
                         json_encode(
                             $newValues,
-                            JSON_UNESCAPED_UNICODE |
-                            JSON_UNESCAPED_SLASHES
+                            JSON_UNESCAPED_UNICODE
+                                | JSON_UNESCAPED_SLASHES
                         ),
                     ]);
-
                 }
 
-
                 fclose($handle);
-
             },
             $filename,
             [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Type' =>
+                    'text/csv; charset=UTF-8',
+
+                'Content-Disposition' =>
+                    'attachment; filename="'
+                    . $filename
+                    . '"',
             ]
         );
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -182,9 +191,11 @@ class AuditLogController extends Controller
         int $companyId
     ) {
         $query = AuditLog::with('user')
-            ->where('company_id', $companyId)
+            ->where(
+                'company_id',
+                $companyId
+            )
             ->latest();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -193,52 +204,46 @@ class AuditLogController extends Controller
         */
 
         if ($request->filled('search')) {
-
             $search = trim(
                 $request->string('search')->toString()
             );
 
-
-            $query->where(function ($q) use ($search) {
-
-                $q->where(
-                    'action',
-                    'like',
-                    "%{$search}%"
-                )
-
-                ->orWhere(
-                    'auditable_type',
-                    'like',
-                    "%{$search}%"
-                )
-
-                ->orWhere(
-                    'ip_address',
-                    'like',
-                    "%{$search}%"
-                )
-
-                ->orWhereHas('user', function ($userQuery) use ($search) {
-
-                    $userQuery
-                        ->where(
-                            'name',
+            $query->where(
+                function ($q) use ($search) {
+                    $q->where(
+                        'action',
+                        'like',
+                        "%{$search}%"
+                    )
+                        ->orWhere(
+                            'auditable_type',
                             'like',
                             "%{$search}%"
                         )
                         ->orWhere(
-                            'email',
+                            'ip_address',
                             'like',
                             "%{$search}%"
+                        )
+                        ->orWhereHas(
+                            'user',
+                            function ($userQuery) use ($search) {
+                                $userQuery
+                                    ->where(
+                                        'name',
+                                        'like',
+                                        "%{$search}%"
+                                    )
+                                    ->orWhere(
+                                        'email',
+                                        'like',
+                                        "%{$search}%"
+                                    );
+                            }
                         );
-
-                });
-
-            });
-
+                }
+            );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -247,14 +252,11 @@ class AuditLogController extends Controller
         */
 
         if ($request->filled('action')) {
-
             $query->where(
                 'action',
                 $request->string('action')->toString()
             );
-
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -263,15 +265,12 @@ class AuditLogController extends Controller
         */
 
         if ($request->filled('date_from')) {
-
             $query->whereDate(
                 'created_at',
                 '>=',
                 $request->date('date_from')
             );
-
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -280,19 +279,15 @@ class AuditLogController extends Controller
         */
 
         if ($request->filled('date_to')) {
-
             $query->whereDate(
                 'created_at',
                 '<=',
                 $request->date('date_to')
             );
-
         }
-
 
         return $query;
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -303,7 +298,6 @@ class AuditLogController extends Controller
     protected function maskSensitiveValues(
         array $values
     ): array {
-
         $sensitiveKeys = [
             'password',
             'password_confirmation',
@@ -316,35 +310,26 @@ class AuditLogController extends Controller
             'private_key',
         ];
 
-
         foreach ($values as $key => $value) {
-
             if (
                 is_string($key)
-                &&
-                in_array(
+                && in_array(
                     strtolower($key),
                     $sensitiveKeys,
                     true
                 )
             ) {
-
                 $values[$key] = '[MASKED]';
 
                 continue;
             }
 
-
             if (is_array($value)) {
-
                 $values[$key] = $this->maskSensitiveValues(
                     $value
                 );
-
             }
-
         }
-
 
         return $values;
     }

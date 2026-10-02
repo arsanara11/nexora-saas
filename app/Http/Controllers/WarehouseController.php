@@ -12,7 +12,7 @@ class WarehouseController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -114,16 +114,18 @@ class WarehouseController extends Controller
         );
     }
 
-
-    public function create(): View
+    public function create(Request $request): View
     {
+        $company = $request->attributes->get('currentCompany');
+
+        abort_unless($company, 403);
+
         return view('warehouses.create');
     }
 
-
     public function store(Request $request): RedirectResponse
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -192,12 +194,11 @@ class WarehouseController extends Controller
             );
     }
 
-
     public function show(
         Request $request,
         Warehouse $warehouse
     ): View {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -263,10 +264,11 @@ class WarehouseController extends Controller
         );
     }
 
-
-    public function edit(Warehouse $warehouse): View
-    {
-        $company = request()->user()->companies()->first();
+    public function edit(
+        Request $request,
+        Warehouse $warehouse
+    ): View {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -281,12 +283,11 @@ class WarehouseController extends Controller
         );
     }
 
-
     public function update(
         Request $request,
         Warehouse $warehouse
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -361,12 +362,11 @@ class WarehouseController extends Controller
             );
     }
 
-
     public function toggleStatus(
         Request $request,
         Warehouse $warehouse
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -387,12 +387,11 @@ class WarehouseController extends Controller
             );
     }
 
-
     public function destroy(
         Request $request,
         Warehouse $warehouse
     ): RedirectResponse {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 

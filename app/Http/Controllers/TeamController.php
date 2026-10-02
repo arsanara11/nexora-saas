@@ -11,9 +11,9 @@ use Illuminate\Validation\Rule;
 
 class TeamController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -38,10 +38,9 @@ class TeamController extends Controller
         );
     }
 
-
-    public function create()
+    public function create(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -58,10 +57,9 @@ class TeamController extends Controller
         );
     }
 
-
     public function store(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -99,7 +97,6 @@ class TeamController extends Controller
             ],
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Create User
@@ -115,7 +112,6 @@ class TeamController extends Controller
             'is_active' => true,
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Attach Company + Role
@@ -128,7 +124,6 @@ class TeamController extends Controller
                 'role_id' => $validated['role_id'],
             ]
         );
-
 
         /*
         |--------------------------------------------------------------------------
@@ -144,10 +139,9 @@ class TeamController extends Controller
         );
 
         if ($role) {
-
             AuditLog::create([
                 'company_id' => $company->id,
-                'user_id' => auth()->id(),
+                'user_id' => $request->user()?->id,
                 'action' => 'role_assigned',
                 'auditable_type' => User::class,
                 'auditable_id' => $user->id,
@@ -156,11 +150,10 @@ class TeamController extends Controller
                     'role_id' => $role->id,
                     'role' => $role->name,
                 ],
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         }
-
 
         return redirect()
             ->route('team.index')
@@ -170,15 +163,19 @@ class TeamController extends Controller
             );
     }
 
-
-    public function edit(User $user)
-    {
-        $company = auth()->user()->companies()->first();
+    public function edit(
+        Request $request,
+        User $user
+    ) {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
         $member = $company->users()
-            ->where('users.id', $user->id)
+            ->where(
+                'users.id',
+                $user->id
+            )
             ->with('roles')
             ->first();
 
@@ -203,15 +200,13 @@ class TeamController extends Controller
         );
     }
 
-
     public function update(
         Request $request,
         User $user
     ) {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -220,14 +215,16 @@ class TeamController extends Controller
         */
 
         $member = $company->users()
-            ->where('users.id', $user->id)
+            ->where(
+                'users.id',
+                $user->id
+            )
             ->with('roles')
             ->first();
 
         abort_unless($member, 404);
 
         $currentRole = $member->roles->first();
-
 
         $validated = $request->validate([
             'name' => [
@@ -241,8 +238,10 @@ class TeamController extends Controller
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')
-                    ->ignore($user->id),
+                Rule::unique(
+                    'users',
+                    'email'
+                )->ignore($user->id),
             ],
 
             'role_id' => [
@@ -264,7 +263,6 @@ class TeamController extends Controller
             ],
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Update Basic User Information
@@ -276,7 +274,6 @@ class TeamController extends Controller
             'email' => $validated['email'],
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
         | Update Password
@@ -284,14 +281,12 @@ class TeamController extends Controller
         */
 
         if (! empty($validated['password'])) {
-
             $member->update([
                 'password' => Hash::make(
                     $validated['password']
                 ),
             ]);
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -306,7 +301,6 @@ class TeamController extends Controller
             $validated['role_id']
         );
 
-
         /*
         |--------------------------------------------------------------------------
         | Check Whether Role Changed
@@ -319,8 +313,8 @@ class TeamController extends Controller
         $newRoleId = $newRole->id;
         $newRoleName = $newRole->name;
 
-        $roleChanged = (int) $oldRoleId !== (int) $newRoleId;
-
+        $roleChanged =
+            (int) $oldRoleId !== (int) $newRoleId;
 
         /*
         |--------------------------------------------------------------------------
@@ -335,7 +329,6 @@ class TeamController extends Controller
             ]
         );
 
-
         /*
         |--------------------------------------------------------------------------
         | Audit Role Change
@@ -343,10 +336,9 @@ class TeamController extends Controller
         */
 
         if ($roleChanged) {
-
             AuditLog::create([
                 'company_id' => $company->id,
-                'user_id' => auth()->id(),
+                'user_id' => $request->user()?->id,
                 'action' => 'role_changed',
                 'auditable_type' => User::class,
                 'auditable_id' => $member->id,
@@ -358,11 +350,10 @@ class TeamController extends Controller
                     'role_id' => $newRoleId,
                     'role' => $newRoleName,
                 ],
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
             ]);
         }
-
 
         return redirect()
             ->route('team.index')
@@ -372,19 +363,22 @@ class TeamController extends Controller
             );
     }
 
-
-    public function toggleStatus(User $user)
-    {
-        $company = auth()->user()->companies()->first();
+    public function toggleStatus(
+        Request $request,
+        User $user
+    ) {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
         $member = $company->users()
-            ->where('users.id', $user->id)
+            ->where(
+                'users.id',
+                $user->id
+            )
             ->first();
 
         abort_unless($member, 404);
-
 
         /*
         |--------------------------------------------------------------------------
@@ -392,8 +386,7 @@ class TeamController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($member->id === auth()->id()) {
-
+        if ($member->id === $request->user()?->id) {
             return redirect()
                 ->route('team.index')
                 ->with(
@@ -401,7 +394,6 @@ class TeamController extends Controller
                     'You cannot deactivate your own account.'
                 );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -413,11 +405,9 @@ class TeamController extends Controller
             'is_active' => ! $member->is_active,
         ]);
 
-
         $message = $member->is_active
             ? 'Team member activated successfully.'
             : 'Team member deactivated successfully.';
-
 
         return redirect()
             ->route('team.index')

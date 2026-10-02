@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Inventory;
 use App\Models\Order;
@@ -10,13 +9,14 @@ use App\Models\OrderItem;
 use App\Models\ProductVariant;
 use App\Models\StockMovement;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AnalyticsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $company = auth()->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -33,7 +33,6 @@ class AnalyticsController extends Controller
         $endDate = Carbon::today()
             ->endOfDay();
 
-
         /*
         |--------------------------------------------------------------------------
         | Sales Summary
@@ -46,19 +45,15 @@ class AnalyticsController extends Controller
         )
             ->where('status', 'completed');
 
-
         $totalRevenue = (clone $completedOrders)
             ->sum('total');
-
 
         $totalOrders = (clone $completedOrders)
             ->count();
 
-
         $averageOrderValue = $totalOrders > 0
             ? $totalRevenue / $totalOrders
             : 0;
-
 
         $cancelledOrders = Order::where(
             'company_id',
@@ -66,7 +61,6 @@ class AnalyticsController extends Controller
         )
             ->where('status', 'cancelled')
             ->count();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -95,12 +89,9 @@ class AnalyticsController extends Controller
             ->get()
             ->keyBy('date');
 
-
         $salesTrend = collect();
 
-
         for ($i = 0; $i < 30; $i++) {
-
             $date = $startDate
                 ->copy()
                 ->addDays($i);
@@ -110,16 +101,13 @@ class AnalyticsController extends Controller
             $salesTrend->push(
                 (object) [
                     'date' => $dateKey,
-
                     'label' => $date->format('d M'),
-
                     'total' => isset($salesByDate[$dateKey])
                         ? (float) $salesByDate[$dateKey]->total
                         : 0,
                 ]
             );
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -136,7 +124,6 @@ class AnalyticsController extends Controller
             )
             ->groupBy('status')
             ->pluck('total', 'status');
-
 
         /*
         |--------------------------------------------------------------------------
@@ -176,7 +163,6 @@ class AnalyticsController extends Controller
             ->orderByDesc('total_quantity')
             ->limit(8)
             ->get();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -227,7 +213,6 @@ class AnalyticsController extends Controller
             ->orderByDesc('total')
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Customer Performance
@@ -267,7 +252,6 @@ class AnalyticsController extends Controller
             ->limit(8)
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Inventory Overview
@@ -289,16 +273,13 @@ class AnalyticsController extends Controller
             )
             ->get();
 
-
         $totalStockUnits = $inventories->sum(
             'quantity'
         );
 
-
         $totalReservedUnits = $inventories->sum(
             'reserved_quantity'
         );
-
 
         $lowStockCount = $inventories
             ->filter(
@@ -309,7 +290,6 @@ class AnalyticsController extends Controller
             )
             ->count();
 
-
         $outOfStockCount = $inventories
             ->filter(
                 function ($inventory) {
@@ -317,7 +297,6 @@ class AnalyticsController extends Controller
                 }
             )
             ->count();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -343,7 +322,6 @@ class AnalyticsController extends Controller
             ->orderByDesc('total')
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Customer Summary
@@ -355,14 +333,12 @@ class AnalyticsController extends Controller
             $company->id
         )->count();
 
-
         $activeCustomers = Customer::where(
             'company_id',
             $company->id
         )
             ->where('is_active', true)
             ->count();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -376,7 +352,6 @@ class AnalyticsController extends Controller
         )
             ->where('is_active', true)
             ->count();
-
 
         /*
         |--------------------------------------------------------------------------
@@ -400,7 +375,6 @@ class AnalyticsController extends Controller
             ->limit(8)
             ->get();
 
-
         /*
         |--------------------------------------------------------------------------
         | Return Analytics Dashboard
@@ -414,29 +388,19 @@ class AnalyticsController extends Controller
                 'totalOrders',
                 'averageOrderValue',
                 'cancelledOrders',
-
                 'salesTrend',
-
                 'orderStatusSummary',
-
                 'topProducts',
-
                 'salesByCategory',
-
                 'customerPerformance',
-
                 'totalStockUnits',
                 'totalReservedUnits',
                 'lowStockCount',
                 'outOfStockCount',
-
                 'stockMovementSummary',
-
                 'totalCustomers',
                 'activeCustomers',
-
                 'totalProducts',
-
                 'recentSales'
             )
         );

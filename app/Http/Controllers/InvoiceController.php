@@ -17,7 +17,7 @@ class InvoiceController extends Controller
 {
     public function index(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -97,10 +97,9 @@ class InvoiceController extends Controller
         );
     }
 
-
     public function create(Request $request): View
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -131,10 +130,9 @@ class InvoiceController extends Controller
         );
     }
 
-
     public function store(Request $request): RedirectResponse
     {
-        $company = $request->user()->companies()->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -148,30 +146,25 @@ class InvoiceController extends Controller
                     )
                 ),
             ],
-
             'discount' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-
             'tax' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-
             'shipping_cost' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-
             'due_at' => [
                 'nullable',
                 'date',
             ],
-
             'notes' => [
                 'nullable',
                 'string',
@@ -290,14 +283,11 @@ class InvoiceController extends Controller
             );
     }
 
-
     public function show(
         Request $request,
         Invoice $invoice
     ): View {
-        $company = $request->user()
-            ->companies()
-            ->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -317,14 +307,11 @@ class InvoiceController extends Controller
         );
     }
 
-
     public function edit(
         Request $request,
         Invoice $invoice
     ): View {
-        $company = $request->user()
-            ->companies()
-            ->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -354,14 +341,21 @@ class InvoiceController extends Controller
                 'company_id',
                 $company->id
             )
-            ->where(function ($query) use ($invoice) {
+            ->where(function ($query) use (
+                $invoice,
+                $company
+            ) {
                 $query
                     ->whereNotIn(
                         'id',
-                        function ($subQuery) {
+                        function ($subQuery) use ($company) {
                             $subQuery
                                 ->select('order_id')
                                 ->from('invoices')
+                                ->where(
+                                    'company_id',
+                                    $company->id
+                                )
                                 ->whereNotNull('order_id');
                         }
                     )
@@ -382,14 +376,11 @@ class InvoiceController extends Controller
         );
     }
 
-
     public function update(
         Request $request,
         Invoice $invoice
     ): RedirectResponse {
-        $company = $request->user()
-            ->companies()
-            ->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -422,30 +413,25 @@ class InvoiceController extends Controller
                     )
                 ),
             ],
-
             'discount' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-
             'tax' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-
             'shipping_cost' => [
                 'nullable',
                 'numeric',
                 'min:0',
             ],
-
             'due_at' => [
                 'nullable',
                 'date',
             ],
-
             'notes' => [
                 'nullable',
                 'string',
@@ -575,14 +561,11 @@ class InvoiceController extends Controller
             );
     }
 
-
     public function updateStatus(
         Request $request,
         Invoice $invoice
     ): RedirectResponse {
-        $company = $request->user()
-            ->companies()
-            ->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -617,24 +600,20 @@ class InvoiceController extends Controller
                 'issued',
                 'cancelled',
             ],
-
             'issued' => [
                 'issued',
                 'paid',
                 'overdue',
                 'cancelled',
             ],
-
             'paid' => [
                 'paid',
             ],
-
             'overdue' => [
                 'overdue',
                 'paid',
                 'cancelled',
             ],
-
             'cancelled' => [
                 'cancelled',
             ],
@@ -732,14 +711,11 @@ class InvoiceController extends Controller
         );
     }
 
-
     public function destroy(
         Request $request,
         Invoice $invoice
     ): RedirectResponse {
-        $company = $request->user()
-            ->companies()
-            ->first();
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -787,7 +763,6 @@ class InvoiceController extends Controller
                 'Invoice deleted successfully.'
             );
     }
-
 
     private function generateInvoiceNumber(
         int $companyId
