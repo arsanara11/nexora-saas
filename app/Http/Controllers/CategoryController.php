@@ -25,7 +25,14 @@ class CategoryController extends Controller
 
         $query = Category::query()
             ->where('company_id', $company->id)
-            ->withCount('products')
+            ->withCount([
+                'products' => function ($query) use ($company) {
+                    $query->where(
+                        'company_id',
+                        $company->id
+                    );
+                },
+            ])
             ->latest();
 
         if ($request->filled('search')) {
@@ -87,7 +94,12 @@ class CategoryController extends Controller
                 'company_id',
                 $company->id
             )
-                ->has('products')
+                ->whereHas('products', function ($query) use ($company) {
+                    $query->where(
+                        'company_id',
+                        $company->id
+                    );
+                })
                 ->count(),
         ];
 
@@ -208,19 +220,18 @@ class CategoryController extends Controller
 
         abort_unless($company, 403);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Tenant Isolation
-        |--------------------------------------------------------------------------
-        */
-
         abort_unless(
             $category->company_id === $company->id,
             404
         );
 
         $category->load([
-            'products',
+            'products' => function ($query) use ($company) {
+                $query->where(
+                    'company_id',
+                    $company->id
+                );
+            },
         ]);
 
         $products = $category
@@ -284,12 +295,6 @@ class CategoryController extends Controller
 
         abort_unless($company, 403);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Tenant Isolation
-        |--------------------------------------------------------------------------
-        */
-
         abort_unless(
             $category->company_id === $company->id,
             404
@@ -314,12 +319,6 @@ class CategoryController extends Controller
         $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Tenant Isolation
-        |--------------------------------------------------------------------------
-        */
 
         abort_unless(
             $category->company_id === $company->id,
@@ -415,12 +414,6 @@ class CategoryController extends Controller
 
         abort_unless($company, 403);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Tenant Isolation
-        |--------------------------------------------------------------------------
-        */
-
         abort_unless(
             $category->company_id === $company->id,
             404
@@ -452,12 +445,6 @@ class CategoryController extends Controller
 
         abort_unless($company, 403);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Tenant Isolation
-        |--------------------------------------------------------------------------
-        */
-
         abort_unless(
             $category->company_id === $company->id,
             404
@@ -469,7 +456,14 @@ class CategoryController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($category->products()->exists()) {
+        if (
+            $category->products()
+                ->where(
+                    'company_id',
+                    $company->id
+                )
+                ->exists()
+        ) {
             return redirect()
                 ->route('categories.index')
                 ->with(

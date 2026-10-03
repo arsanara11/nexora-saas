@@ -7,13 +7,23 @@ use App\Models\ProductVariant;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Notifications\SystemNotification;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class InventoryController extends Controller
 {
-    public function index()
+    /*
+    |--------------------------------------------------------------------------
+    | Index
+    |--------------------------------------------------------------------------
+    */
+
+    public function index(Request $request): View
     {
-        $company = request()->attributes->get('currentCompany');
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -58,9 +68,15 @@ class InventoryController extends Controller
         );
     }
 
-    public function create()
+    /*
+    |--------------------------------------------------------------------------
+    | Create
+    |--------------------------------------------------------------------------
+    */
+
+    public function create(Request $request): View
     {
-        $company = request()->attributes->get('currentCompany');
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -96,21 +112,50 @@ class InventoryController extends Controller
         );
     }
 
-    public function store(Request $request)
-    {
-        $company = request()->attributes->get('currentCompany');
+    /*
+    |--------------------------------------------------------------------------
+    | Store
+    |--------------------------------------------------------------------------
+    */
+
+    public function store(
+        Request $request
+    ): RedirectResponse {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
         $validated = $request->validate([
             'warehouse_id' => [
                 'required',
-                'exists:warehouses,id',
+                'integer',
+                Rule::exists('warehouses', 'id')
+                    ->where(
+                        fn ($query) => $query->where(
+                            'company_id',
+                            $company->id
+                        )
+                        ->where(
+                            'is_active',
+                            true
+                        )
+                    ),
             ],
 
             'product_variant_id' => [
                 'required',
-                'exists:product_variants,id',
+                'integer',
+                Rule::exists('product_variants', 'id')
+                    ->where(
+                        fn ($query) => $query->where(
+                            'company_id',
+                            $company->id
+                        )
+                        ->where(
+                            'is_active',
+                            true
+                        )
+                    ),
             ],
 
             'quantity' => [
@@ -123,6 +168,7 @@ class InventoryController extends Controller
                 'required',
                 'integer',
                 'min:0',
+                'lte:quantity',
             ],
 
             'reorder_level' => [
@@ -155,180 +201,191 @@ class InventoryController extends Controller
                 'company_id',
                 $company->id
             )
+            ->where(
+                'is_active',
+                true
+            )
             ->firstOrFail();
 
-        $inventory = Inventory::where(
-            'warehouse_id',
-            $warehouse->id
-        )
-            ->where(
-                'product_variant_id',
-                $variant->id
+        DB::transaction(function () use (
+            $request,
+            $validated,
+            $warehouse,
+            $variant
+        ) {
+            $inventory = Inventory::where(
+                'warehouse_id',
+                $warehouse->id
             )
-            ->first();
+                ->where(
+                    'product_variant_id',
+                    $variant->id
+                )
+                ->lockForUpdate()
+                ->first();
 
-        if ($inventory) {
-            $previousAvailableQuantity =
-                (int) $inventory->quantity
-                - (int) $inventory->reserved_quantity;
+            if ($inventory) {
+                $previousAvailableQuantity =
+                    (int) $inventory->quantity
+                    - (int) $inventory->reserved_quantity;
 
-            $previousReorderLevel =
-                (int) $inventory->reorder_level;
+                $previousReorderLevel =
+                    (int) $inventory->reorder_level;
 
-            $inventory->update([
-                'quantity' =>
-                    $inventory->quantity
-                    + $validated['quantity'],
+                $inventory->update([
+                    'quantity' =>
+                        (int) $inventory->quantity
+                        + (int) $validated['quantity'],
 
-                'reserved_quantity' =>
-                    $validated['reserved_quantity'],
+                    'reserved_quantity' =>
+                        (int) $validated['reserved_quantity'],
 
-                'reorder_level' =>
-                    $validated['reorder_level'],
-            ]);
+                    'reorder_level' =>
+                        (int) $validated['reorder_level'],
+                ]);
 
-            $inventory->refresh();
+                $inventory->refresh();
 
-            $currentAvailableQuantity =
-                (int) $inventory->quantity
-                - (int) $inventory->reserved_quantity;
+                $currentAvailableQuantity =
+                    (int) $inventory->quantity
+                    - (int) $inventory->reserved_quantity;
 
-            $wasLowStock =
-                $previousAvailableQuantity
-                <= $previousReorderLevel;
+                $wasLowStock =
+                    $previousAvailableQuantity
+                    <= $previousReorderLevel;
 
-            $isLowStock =
-                $currentAvailableQuantity
-                <= (int) $inventory->reorder_level;
+                $isLowStock =
+                    $currentAvailableQuantity
+                    <= (int) $inventory->reorder_level;
 
-            $isOutOfStock =
-                $currentAvailableQuantity <= 0;
+                $isOutOfStock =
+                    $currentAvailableQuantity <= 0;
 
-            /*
-             * --------------------------------------------------------------------------
-             * Low Stock Notification
-             * --------------------------------------------------------------------------
-             *
-             * Send an alert whenever an inventory update results in low stock.
-             * This intentionally does not require the inventory to have just
-             * entered the low-stock state, so repeated updates remain visible
-             * in the Notification Center.
-             *
-             */
-
-            if ($isLowStock) {
-                $productName =
-                    $variant->product?->name
-                    ?? $variant->name;
-
-                if ($isOutOfStock) {
-                    $title = 'Inventory Out of Stock';
-
-                    $message =
-                        "{$productName} is out of stock "
-                        . "at {$warehouse->name}.";
-                } else {
-                    $title = 'Low Stock Alert';
-
-                    $message =
-                        "{$productName} is running low "
-                        . "at {$warehouse->name}. "
-                        . "Available stock: {$currentAvailableQuantity}.";
-                }
-
-                $request->user()->notify(
-                    new SystemNotification(
-                        $title,
-                        $message,
-                        'inventory',
-                        '▣'
-                    )
-                );
-            } elseif ($wasLowStock && ! $isLowStock) {
                 /*
-                 * --------------------------------------------------------------------------
-                 * Stock Restored Notification
-                 * --------------------------------------------------------------------------
-                 */
+                |--------------------------------------------------------------------------
+                | Low Stock Notification
+                |--------------------------------------------------------------------------
+                |
+                | Send an alert whenever an inventory update results in
+                | low stock. Repeated low-stock updates remain visible
+                | in the Notification Center.
+                |
+                */
 
-                $productName =
-                    $variant->product?->name
-                    ?? $variant->name;
+                if ($isLowStock) {
+                    $productName =
+                        $variant->product?->name
+                        ?? $variant->name;
 
-                $request->user()->notify(
-                    new SystemNotification(
-                        'Inventory Restored',
-                        "{$productName} stock at {$warehouse->name} is back above the reorder level.",
-                        'inventory',
-                        '▣'
-                    )
-                );
-            }
-        } else {
-            $inventory = Inventory::create([
-                'warehouse_id' =>
-                    $warehouse->id,
+                    if ($isOutOfStock) {
+                        $title = 'Inventory Out of Stock';
 
-                'product_variant_id' =>
-                    $variant->id,
+                        $message =
+                            "{$productName} is out of stock "
+                            . "at {$warehouse->name}.";
+                    } else {
+                        $title = 'Low Stock Alert';
 
-                'quantity' =>
-                    $validated['quantity'],
+                        $message =
+                            "{$productName} is running low "
+                            . "at {$warehouse->name}. "
+                            . "Available stock: {$currentAvailableQuantity}.";
+                    }
 
-                'reserved_quantity' =>
-                    $validated['reserved_quantity'],
+                    $request->user()->notify(
+                        new SystemNotification(
+                            $title,
+                            $message,
+                            'inventory',
+                            '▣'
+                        )
+                    );
+                } elseif ($wasLowStock && ! $isLowStock) {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Stock Restored Notification
+                    |--------------------------------------------------------------------------
+                    */
 
-                'reorder_level' =>
-                    $validated['reorder_level'],
-            ]);
+                    $productName =
+                        $variant->product?->name
+                        ?? $variant->name;
 
-            /*
-             * --------------------------------------------------------------------------
-             * Initial Inventory Notification
-             * --------------------------------------------------------------------------
-             */
-
-            $availableQuantity =
-                (int) $inventory->quantity
-                - (int) $inventory->reserved_quantity;
-
-            $isOutOfStock =
-                $availableQuantity <= 0;
-
-            $isLowStock =
-                $availableQuantity
-                <= (int) $inventory->reorder_level;
-
-            if ($isLowStock) {
-                $productName =
-                    $variant->product?->name
-                    ?? $variant->name;
-
-                if ($isOutOfStock) {
-                    $title = 'Inventory Out of Stock';
-
-                    $message =
-                        "{$productName} is out of stock "
-                        . "at {$warehouse->name}.";
-                } else {
-                    $title = 'Low Stock Alert';
-
-                    $message =
-                        "{$productName} is running low "
-                        . "at {$warehouse->name}. "
-                        . "Available stock: {$availableQuantity}.";
+                    $request->user()->notify(
+                        new SystemNotification(
+                            'Inventory Restored',
+                            "{$productName} stock at {$warehouse->name} is back above the reorder level.",
+                            'inventory',
+                            '▣'
+                        )
+                    );
                 }
+            } else {
+                $inventory = Inventory::create([
+                    'warehouse_id' =>
+                        $warehouse->id,
 
-                $request->user()->notify(
-                    new SystemNotification(
-                        $title,
-                        $message,
-                        'inventory',
-                        '▣'
-                    )
-                );
+                    'product_variant_id' =>
+                        $variant->id,
+
+                    'quantity' =>
+                        (int) $validated['quantity'],
+
+                    'reserved_quantity' =>
+                        (int) $validated['reserved_quantity'],
+
+                    'reorder_level' =>
+                        (int) $validated['reorder_level'],
+                ]);
+
+                /*
+                |--------------------------------------------------------------------------
+                | Initial Inventory Notification
+                |--------------------------------------------------------------------------
+                */
+
+                $availableQuantity =
+                    (int) $inventory->quantity
+                    - (int) $inventory->reserved_quantity;
+
+                $isOutOfStock =
+                    $availableQuantity <= 0;
+
+                $isLowStock =
+                    $availableQuantity
+                    <= (int) $inventory->reorder_level;
+
+                if ($isLowStock) {
+                    $productName =
+                        $variant->product?->name
+                        ?? $variant->name;
+
+                    if ($isOutOfStock) {
+                        $title = 'Inventory Out of Stock';
+
+                        $message =
+                            "{$productName} is out of stock "
+                            . "at {$warehouse->name}.";
+                    } else {
+                        $title = 'Low Stock Alert';
+
+                        $message =
+                            "{$productName} is running low "
+                            . "at {$warehouse->name}. "
+                            . "Available stock: {$availableQuantity}.";
+                    }
+
+                    $request->user()->notify(
+                        new SystemNotification(
+                            $title,
+                            $message,
+                            'inventory',
+                            '▣'
+                        )
+                    );
+                }
             }
-        }
+        });
 
         return redirect()
             ->route('inventory.index')
@@ -338,9 +395,17 @@ class InventoryController extends Controller
             );
     }
 
-    public function show(Inventory $inventory)
-    {
-        $company = request()->attributes->get('currentCompany');
+    /*
+    |--------------------------------------------------------------------------
+    | Show
+    |--------------------------------------------------------------------------
+    */
+
+    public function show(
+        Request $request,
+        Inventory $inventory
+    ): View {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -367,9 +432,17 @@ class InventoryController extends Controller
         );
     }
 
-    public function edit(Inventory $inventory)
-    {
-        $company = request()->attributes->get('currentCompany');
+    /*
+    |--------------------------------------------------------------------------
+    | Edit
+    |--------------------------------------------------------------------------
+    */
+
+    public function edit(
+        Request $request,
+        Inventory $inventory
+    ): View {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -396,11 +469,17 @@ class InventoryController extends Controller
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Update
+    |--------------------------------------------------------------------------
+    */
+
     public function update(
         Request $request,
         Inventory $inventory
-    ) {
-        $company = request()->attributes->get('currentCompany');
+    ): RedirectResponse {
+        $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
@@ -432,6 +511,7 @@ class InventoryController extends Controller
                 'required',
                 'integer',
                 'min:0',
+                'lte:quantity',
             ],
 
             'reorder_level' => [
@@ -454,13 +534,13 @@ class InventoryController extends Controller
 
         $inventory->update([
             'quantity' =>
-                $validated['quantity'],
+                (int) $validated['quantity'],
 
             'reserved_quantity' =>
-                $validated['reserved_quantity'],
+                (int) $validated['reserved_quantity'],
 
             'reorder_level' =>
-                $validated['reorder_level'],
+                (int) $validated['reorder_level'],
         ]);
 
         $inventory->refresh();
@@ -477,14 +557,10 @@ class InventoryController extends Controller
             $currentAvailableQuantity <= 0;
 
         /*
-         * --------------------------------------------------------------------------
-         * Low Stock Notification
-         * --------------------------------------------------------------------------
-         *
-         * Send a notification whenever the updated inventory is currently
-         * at or below the reorder level.
-         *
-         */
+        |--------------------------------------------------------------------------
+        | Low Stock Notification
+        |--------------------------------------------------------------------------
+        */
 
         if ($isLowStock) {
             $productName =
@@ -516,10 +592,10 @@ class InventoryController extends Controller
             );
         } elseif ($wasLowStock && ! $isLowStock) {
             /*
-             * --------------------------------------------------------------------------
-             * Stock Restored Notification
-             * --------------------------------------------------------------------------
-             */
+            |--------------------------------------------------------------------------
+            | Stock Restored Notification
+            |--------------------------------------------------------------------------
+            */
 
             $productName =
                 $inventory->productVariant->product?->name
