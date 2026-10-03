@@ -31,7 +31,9 @@ class AuthenticatedSessionController extends Controller
                 $attemptedEmail
             )->first();
 
-            $company = $user?->companies()->first();
+            $company = $user?->companies()
+                ->orderBy('companies.id')
+                ->first();
 
             if ($user && $company) {
                 AuditLog::create([
@@ -56,23 +58,55 @@ class AuthenticatedSessionController extends Controller
 
         $user = Auth::user();
 
-        $company = $user?->companies()->first();
+        abort_unless($user, 401);
 
-        if ($user && $company) {
-            AuditLog::create([
-                'company_id' => $company->id,
-                'user_id' => $user->id,
-                'action' => 'login',
-                'auditable_type' => User::class,
-                'auditable_id' => $user->id,
-                'old_values' => null,
-                'new_values' => [
-                    'email' => $user->email,
-                ],
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
+        /*
+         * Determine the user's default company.
+         *
+         * The company is deliberately resolved through the
+         * user's memberships, never from an arbitrary company.
+         */
+        $company = $user->companies()
+            ->orderBy('companies.id')
+            ->first();
+
+        /*
+         * A user without a company membership cannot enter
+         * the tenant area of the application.
+         */
+        if (! $company) {
+            Auth::guard('web')->logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw ValidationException::withMessages([
+                'email' => 'Your account is not associated with any company.',
             ]);
         }
+
+        /*
+         * Establish the initial tenant context immediately
+         * after authentication.
+         */
+        $request->session()->put(
+            'current_company_id',
+            $company->id
+        );
+
+        AuditLog::create([
+            'company_id' => $company->id,
+            'user_id' => $user->id,
+            'action' => 'login',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'old_values' => null,
+            'new_values' => [
+                'email' => $user->email,
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
 
         return redirect()->intended(
             route(
@@ -86,7 +120,30 @@ class AuthenticatedSessionController extends Controller
     {
         $user = Auth::user();
 
-        $company = $user?->companies()->first();
+        $companyId = $request->session()->get(
+            'current_company_id'
+        );
+
+        $company = null;
+
+        if ($user && $companyId) {
+            $company = $user->companies()
+                ->where(
+                    'companies.id',
+                    $companyId
+                )
+                ->first();
+        }
+
+        /*
+         * Fallback only if the session does not contain
+         * a valid current company.
+         */
+        if ($user && ! $company) {
+            $company = $user->companies()
+                ->orderBy('companies.id')
+                ->first();
+        }
 
         if ($user && $company) {
             AuditLog::create([
