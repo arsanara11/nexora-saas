@@ -582,17 +582,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 |
 */
 
-Route::get('/debug/current-company', function (\Illuminate\Http\Request $request) {
-    $company = $request->attributes->get('currentCompany');
-
-    return response()->json([
-        'user_id' => $request->user()?->id,
-        'current_company_id' => $request->session()->get('current_company_id'),
-        'current_company_name' => $company?->name,
-        'current_company_exists' => (bool) $company,
-    ]);
-})->middleware('auth');
-
 /*
 |--------------------------------------------------------------------------
 | Profile
@@ -620,3 +609,4 @@ Route::middleware('auth')->group(function () {
 */
 
 require __DIR__ . '/auth.php';
+

@@ -6,11 +6,18 @@ use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 class TeamController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Team Index
+    |--------------------------------------------------------------------------
+    */
+
     public function index(Request $request)
     {
         $company = $request->attributes->get('currentCompany');
@@ -38,16 +45,46 @@ class TeamController extends Controller
         );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create Team Member
+    |--------------------------------------------------------------------------
+    */
+
     public function create(Request $request)
     {
         $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
 
-        $roles = Role::where(
+        $currentUser = $request->user();
+
+        $isOwner = $this->isCurrentUserOwner(
+            $company,
+            $currentUser
+        );
+
+        $rolesQuery = Role::where(
             'company_id',
             $company->id
-        )
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Manager cannot assign Owner
+        |--------------------------------------------------------------------------
+        */
+
+        if (! $isOwner) {
+            $rolesQuery->where(
+                'slug',
+                '!=',
+                'owner'
+            );
+        }
+
+        $roles = $rolesQuery
             ->orderBy('name')
             ->get();
 
@@ -57,11 +94,25 @@ class TeamController extends Controller
         );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Store Team Member
+    |--------------------------------------------------------------------------
+    */
+
     public function store(Request $request)
     {
         $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
+        $currentUser = $request->user();
+
+        $isOwner = $this->isCurrentUserOwner(
+            $company,
+            $currentUser
+        );
 
         $validated = $request->validate([
             'name' => [
@@ -97,48 +148,88 @@ class TeamController extends Controller
             ],
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create User
-        |--------------------------------------------------------------------------
-        */
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make(
-                $validated['password']
-            ),
-            'is_active' => true,
-        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | Attach Company + Role
-        |--------------------------------------------------------------------------
-        */
-
-        $company->users()->attach(
-            $user->id,
-            [
-                'role_id' => $validated['role_id'],
-            ]
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Audit Role Assignment
+        | Resolve Selected Role
         |--------------------------------------------------------------------------
         */
 
         $role = Role::where(
             'company_id',
             $company->id
-        )->find(
-            $validated['role_id']
-        );
+        )
+            ->findOrFail(
+                $validated['role_id']
+            );
 
-        if ($role) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent Manager From Assigning Owner
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            strtolower((string) $role->slug) === 'owner'
+            && ! $isOwner
+        ) {
+            abort(
+                403,
+                'Only the company owner can assign the Owner role.'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create User + Company Membership + Audit
+        |--------------------------------------------------------------------------
+        */
+
+        DB::transaction(function () use (
+            $validated,
+            $company,
+            $role,
+            $request
+        ) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create User
+            |--------------------------------------------------------------------------
+            */
+
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make(
+                    $validated['password']
+                ),
+                'is_active' => true,
+            ]);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Attach Company + Role
+            |--------------------------------------------------------------------------
+            */
+
+            $company->users()->attach(
+                $user->id,
+                [
+                    'role_id' => $role->id,
+                ]
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Audit Role Assignment
+            |--------------------------------------------------------------------------
+            */
+
             AuditLog::create([
                 'company_id' => $company->id,
                 'user_id' => $request->user()?->id,
@@ -153,7 +244,8 @@ class TeamController extends Controller
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
-        }
+        });
+
 
         return redirect()
             ->route('team.index')
@@ -162,6 +254,13 @@ class TeamController extends Controller
                 'Team member added successfully.'
             );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Edit Team Member
+    |--------------------------------------------------------------------------
+    */
 
     public function edit(
         Request $request,
@@ -181,14 +280,77 @@ class TeamController extends Controller
 
         abort_unless($member, 404);
 
-        $roles = Role::where(
+
+        /*
+        |--------------------------------------------------------------------------
+        | Current User Permission Level
+        |--------------------------------------------------------------------------
+        */
+
+        $currentUser = $request->user();
+
+        $isOwner = $this->isCurrentUserOwner(
+            $company,
+            $currentUser
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve Member's Current Role
+        |--------------------------------------------------------------------------
+        */
+
+        $currentRole = $member->roles->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Manager Cannot Manage Owner
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $this->isOwnerRole($currentRole)
+            && ! $isOwner
+        ) {
+            abort(
+                403,
+                'Only the company owner can manage the Owner account.'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Available Roles
+        |--------------------------------------------------------------------------
+        */
+
+        $rolesQuery = Role::where(
             'company_id',
             $company->id
-        )
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Manager Cannot Assign Owner
+        |--------------------------------------------------------------------------
+        */
+
+        if (! $isOwner) {
+            $rolesQuery->where(
+                'slug',
+                '!=',
+                'owner'
+            );
+        }
+
+        $roles = $rolesQuery
             ->orderBy('name')
             ->get();
 
-        $currentRole = $member->roles->first();
 
         return view(
             'team.edit',
@@ -200,6 +362,13 @@ class TeamController extends Controller
         );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update Team Member
+    |--------------------------------------------------------------------------
+    */
+
     public function update(
         Request $request,
         User $user
@@ -207,6 +376,7 @@ class TeamController extends Controller
         $company = $request->attributes->get('currentCompany');
 
         abort_unless($company, 403);
+
 
         /*
         |--------------------------------------------------------------------------
@@ -224,7 +394,46 @@ class TeamController extends Controller
 
         abort_unless($member, 404);
 
+
         $currentRole = $member->roles->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Current User Permission Level
+        |--------------------------------------------------------------------------
+        */
+
+        $currentUser = $request->user();
+
+        $isOwner = $this->isCurrentUserOwner(
+            $company,
+            $currentUser
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent Manager From Editing Owner
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $this->isOwnerRole($currentRole)
+            && ! $isOwner
+        ) {
+            abort(
+                403,
+                'Only the company owner can manage the Owner account.'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validation
+        |--------------------------------------------------------------------------
+        */
 
         $validated = $request->validate([
             'name' => [
@@ -238,6 +447,7 @@ class TeamController extends Controller
                 'string',
                 'email',
                 'max:255',
+
                 Rule::unique(
                     'users',
                     'email'
@@ -246,13 +456,18 @@ class TeamController extends Controller
 
             'role_id' => [
                 'required',
-                Rule::exists('roles', 'id')
-                    ->where(function ($query) use ($company) {
-                        $query->where(
-                            'company_id',
-                            $company->id
-                        );
-                    }),
+
+                Rule::exists(
+                    'roles',
+                    'id'
+                )->where(function ($query) use ($company) {
+
+                    $query->where(
+                        'company_id',
+                        $company->id
+                    );
+
+                }),
             ],
 
             'password' => [
@@ -263,30 +478,6 @@ class TeamController extends Controller
             ],
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Update Basic User Information
-        |--------------------------------------------------------------------------
-        */
-
-        $member->update([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-        ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Update Password
-        |--------------------------------------------------------------------------
-        */
-
-        if (! empty($validated['password'])) {
-            $member->update([
-                'password' => Hash::make(
-                    $validated['password']
-                ),
-            ]);
-        }
 
         /*
         |--------------------------------------------------------------------------
@@ -297,9 +488,28 @@ class TeamController extends Controller
         $newRole = Role::where(
             'company_id',
             $company->id
-        )->findOrFail(
-            $validated['role_id']
-        );
+        )
+            ->findOrFail(
+                $validated['role_id']
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent Manager From Assigning Owner
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $this->isOwnerRole($newRole)
+            && ! $isOwner
+        ) {
+            abort(
+                403,
+                'Only the company owner can assign the Owner role.'
+            );
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -316,44 +526,99 @@ class TeamController extends Controller
         $roleChanged =
             (int) $oldRoleId !== (int) $newRoleId;
 
-        /*
-        |--------------------------------------------------------------------------
-        | Update Company Role
-        |--------------------------------------------------------------------------
-        */
-
-        $company->users()->updateExistingPivot(
-            $member->id,
-            [
-                'role_id' => $newRoleId,
-            ]
-        );
 
         /*
         |--------------------------------------------------------------------------
-        | Audit Role Change
+        | Update Member + Role + Audit
         |--------------------------------------------------------------------------
         */
 
-        if ($roleChanged) {
-            AuditLog::create([
-                'company_id' => $company->id,
-                'user_id' => $request->user()?->id,
-                'action' => 'role_changed',
-                'auditable_type' => User::class,
-                'auditable_id' => $member->id,
-                'old_values' => [
-                    'role_id' => $oldRoleId,
-                    'role' => $oldRoleName,
-                ],
-                'new_values' => [
-                    'role_id' => $newRoleId,
-                    'role' => $newRoleName,
-                ],
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
+        DB::transaction(function () use (
+            $validated,
+            $member,
+            $company,
+            $request,
+            $newRole,
+            $newRoleId,
+            $oldRoleId,
+            $oldRoleName,
+            $newRoleName,
+            $roleChanged
+        ) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update Basic User Information
+            |--------------------------------------------------------------------------
+            */
+
+            $member->update([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
             ]);
-        }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update Password
+            |--------------------------------------------------------------------------
+            */
+
+            if (! empty($validated['password'])) {
+
+                $member->update([
+                    'password' => Hash::make(
+                        $validated['password']
+                    ),
+                ]);
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Update Company Role
+            |--------------------------------------------------------------------------
+            */
+
+            $company->users()->updateExistingPivot(
+                $member->id,
+                [
+                    'role_id' => $newRoleId,
+                ]
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Audit Role Change
+            |--------------------------------------------------------------------------
+            */
+
+            if ($roleChanged) {
+
+                AuditLog::create([
+                    'company_id' => $company->id,
+                    'user_id' => $request->user()?->id,
+                    'action' => 'role_changed',
+                    'auditable_type' => User::class,
+                    'auditable_id' => $member->id,
+
+                    'old_values' => [
+                        'role_id' => $oldRoleId,
+                        'role' => $oldRoleName,
+                    ],
+
+                    'new_values' => [
+                        'role_id' => $newRoleId,
+                        'role' => $newRoleName,
+                    ],
+
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]);
+            }
+        });
+
 
         return redirect()
             ->route('team.index')
@@ -363,6 +628,13 @@ class TeamController extends Controller
             );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Toggle Account Status
+    |--------------------------------------------------------------------------
+    */
+
     public function toggleStatus(
         Request $request,
         User $user
@@ -371,14 +643,23 @@ class TeamController extends Controller
 
         abort_unless($company, 403);
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load Member
+        |--------------------------------------------------------------------------
+        */
+
         $member = $company->users()
             ->where(
                 'users.id',
                 $user->id
             )
+            ->with('roles')
             ->first();
 
         abort_unless($member, 404);
+
 
         /*
         |--------------------------------------------------------------------------
@@ -386,7 +667,10 @@ class TeamController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($member->id === $request->user()?->id) {
+        if (
+            $member->id === $request->user()?->id
+        ) {
+
             return redirect()
                 ->route('team.index')
                 ->with(
@@ -395,19 +679,58 @@ class TeamController extends Controller
                 );
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Current User Permission Level
+        |--------------------------------------------------------------------------
+        */
+
+        $isOwner = $this->isCurrentUserOwner(
+            $company,
+            $request->user()
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Prevent Manager From Changing Owner Status
+        |--------------------------------------------------------------------------
+        */
+
+        $memberRole = $member->roles->first();
+
+        if (
+            $this->isOwnerRole($memberRole)
+            && ! $isOwner
+        ) {
+            abort(
+                403,
+                'Only the company owner can change the Owner account status.'
+            );
+        }
+
+
         /*
         |--------------------------------------------------------------------------
         | Toggle Status
         |--------------------------------------------------------------------------
         */
 
-        $member->update([
-            'is_active' => ! $member->is_active,
-        ]);
+        DB::transaction(function () use (
+            $member
+        ) {
+
+            $member->update([
+                'is_active' => ! $member->is_active,
+            ]);
+        });
+
 
         $message = $member->is_active
             ? 'Team member activated successfully.'
             : 'Team member deactivated successfully.';
+
 
         return redirect()
             ->route('team.index')
@@ -415,5 +738,53 @@ class TeamController extends Controller
                 'success',
                 $message
             );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check Current User Is Company Owner
+    |--------------------------------------------------------------------------
+    */
+
+    private function isCurrentUserOwner(
+        $company,
+        ?User $user
+    ): bool {
+
+        if (! $user) {
+            return false;
+        }
+
+        return $user->roles()
+            ->where(
+                'roles.company_id',
+                $company->id
+            )
+            ->where(
+                'roles.slug',
+                'owner'
+            )
+            ->exists();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check Whether Role Is Owner
+    |--------------------------------------------------------------------------
+    */
+
+    private function isOwnerRole(
+        ?Role $role
+    ): bool {
+
+        if (! $role) {
+            return false;
+        }
+
+        return strtolower(
+            (string) $role->slug
+        ) === 'owner';
     }
 }
