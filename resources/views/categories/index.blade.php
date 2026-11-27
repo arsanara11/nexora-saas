@@ -1,32 +1,21 @@
 <x-app-layout>
-
     <div class="space-y-8">
-
         {{-- ============================================================ --}}
         {{-- HEADER --}}
         {{-- ============================================================ --}}
-
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-
             <div>
-
                 <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#727985]">
                     Product Management
                 </p>
-
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight text-[#F5F5F2]">
                     Categories
                 </h1>
-
                 <p class="mt-2 max-w-2xl text-sm leading-6 text-[#8B919A]">
                     Organize products into clear categories for easier management.
                 </p>
-
             </div>
-
-
             <div class="flex items-center gap-3">
-
                 <a
                     href="{{ route('products.index') }}"
                     class="inline-flex items-center justify-center gap-2 rounded-lg border border-[#242830] px-4 py-2.5 text-sm font-medium text-[#B9BEC6] transition hover:border-[#3A404A] hover:bg-[#151A21] hover:text-white"
@@ -37,8 +26,6 @@
 
                     Products
                 </a>
-
-
                 <a
                     href="{{ route('categories.create') }}"
                     class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#F5F5F2] px-4 py-2.5 text-sm font-semibold text-[#080B10] transition hover:bg-white"
@@ -46,54 +33,36 @@
                     <span class="text-lg leading-none">
                         +
                     </span>
-
                     Add Category
                 </a>
-
             </div>
-
         </div>
-
-
 
         {{-- ============================================================ --}}
         {{-- FLASH MESSAGES --}}
         {{-- ============================================================ --}}
 
         @if (session('success'))
-
             <div class="flex items-center gap-3 rounded-xl border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
 
                 <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-400/10">
                     ✓
                 </span>
-
                 <span>
                     {{ session('success') }}
                 </span>
-
             </div>
-
         @endif
-
-
         @if (session('error'))
-
             <div class="flex items-center gap-3 rounded-xl border border-rose-400/15 bg-rose-400/10 px-4 py-3 text-sm text-rose-300">
-
                 <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-400/10">
                     !
                 </span>
-
                 <span>
                     {{ session('error') }}
                 </span>
-
             </div>
-
         @endif
-
-
 
         {{-- ============================================================ --}}
         {{-- VALIDATION ERRORS --}}
@@ -123,14 +92,11 @@
 
         @endif
 
-
-
         {{-- ============================================================ --}}
         {{-- SUMMARY CARDS --}}
         {{-- ============================================================ --}}
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
 
             {{-- Total --}}
             <div class="rounded-2xl border border-[#242830] bg-[#12151A] px-5 py-5">
@@ -149,20 +115,15 @@
 
                     </div>
 
-
                     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#8B7CFF]/10 text-[#A99FFF]">
                         ≡
                     </div>
-
                 </div>
-
                 <p class="mt-3 text-xs text-[#666C75]">
                     All categories in your workspace
                 </p>
 
             </div>
-
-
 
             {{-- Active --}}
             <div class="rounded-2xl border border-[#242830] bg-[#12151A] px-5 py-5">
